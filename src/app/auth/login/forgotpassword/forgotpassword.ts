@@ -18,20 +18,18 @@ export class Forgotpassword {
   message = '';
   messageType: 'success' | 'error' | '' = '';
   loading = false;
+  showSuccessModal = false;
 
   private baseUrl = 'http://localhost:8080/api/auth';
 
-  constructor(private http: HttpClient) {}  // ✅ this was missing!
+  constructor(private http: HttpClient) {}  
 
   onSubmit() {
     if (!this.email || !this.newPassword || !this.confirmPassword) {
       this.showMessage('Please fill in all fields.', 'error');
       return;
     }
-    if (this.newPassword.length < 6) {
-      this.showMessage('Password must be at least 6 characters.', 'error');
-      return;
-    }
+   
     if (this.newPassword !== this.confirmPassword) {
       this.showMessage('Passwords do not match.', 'error');
       return;
@@ -40,7 +38,7 @@ export class Forgotpassword {
     this.loading = true;
     this.resetPassword({ email: this.email, newPassword: this.newPassword }).subscribe({
       next: () => {
-        this.showMessage('Password reset successful!', 'success');
+        this.showSuccessModal = true;
         this.email = '';
         this.newPassword = '';
         this.confirmPassword = '';
@@ -65,5 +63,9 @@ export class Forgotpassword {
       this.message = '';
       this.messageType = '';
     }, 4000);
+  }
+
+  closeModal() {
+    this.showSuccessModal = false;
   }
 }
