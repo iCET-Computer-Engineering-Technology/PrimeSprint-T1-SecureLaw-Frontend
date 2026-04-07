@@ -4,6 +4,7 @@ import { Token } from '../../core/services/token';
 import { Theme } from '../../core/services/theme';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
+import { ChatSessionService } from '../../services/chat-session.service';
 
 type NormalizedRole = 'SENIOR' | 'JUNIOR' | '';
 
@@ -19,6 +20,7 @@ export class NavBar {
   private readonly hostEl = inject(ElementRef<HTMLElement>);
   private readonly theme = inject(Theme);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly chatSession = inject(ChatSessionService);
 
   readonly menuOpen = signal(false);
   readonly themeMenuOpen = signal(false);
@@ -94,7 +96,17 @@ export class NavBar {
 
   goToChat(): void {
     this.closeMenu();
-    this.router.navigate(['/chat/' + Math.random().toString(36).substring(2, 10)]);
+
+    this.chatSession.createChat().subscribe({
+      next: (session) => {
+        console.log(session);
+        
+        this.router.navigate(['/chat', session.chatId]);
+      },
+      error: (err) => {
+        console.error('Failed to create chat session from navbar:', err);
+      },
+    });
   }
 
   goToAuditLogs(): void {
