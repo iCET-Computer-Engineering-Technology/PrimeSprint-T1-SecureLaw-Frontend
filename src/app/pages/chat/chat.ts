@@ -14,14 +14,13 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   SecureFlowPipelineService,
   SecureFlowPipelineState,
   SecureFlowPipelineStage,
 } from '../../services/secure-flow-pipeline-service';
-import { environment } from '../../../environments/environment';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { SensitiveDataItem } from '../../models/secure-flow.model';
@@ -29,12 +28,9 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Theme } from '../../core/services/theme';
 import { Token } from '../../core/services/token';
 import { Auth } from '../../core/services/auth';
+import { ChatSessionService } from '../../services/chat-session.service';
 
 type NormalizedRole = 'SENIOR' | 'JUNIOR' | '';
-
-interface SessionResponse {
-  conversationId: string;
-}
 
 interface ChatMessage {
   role: 'user' | 'ai';
@@ -57,14 +53,6 @@ interface ChatTextSegment {
   piiLabel?: string;
 }
 
-interface ConversationSummary {
-  conversationId: string;
-  title: string;
-  preview: string;
-  messages: ChatMessage[];
-  time: string;
-}
-
 @Component({
   selector: 'app-chat',
   imports: [CommonModule, FormsModule],
@@ -78,19 +66,14 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   @ViewChild('composer') composerRef?: ElementRef<HTMLTextAreaElement>;
   @ViewChild('userMenuWrap') userMenuWrapRef?: ElementRef<HTMLElement>;
 
-  conversationId = '';
   userInput = '';
   messages: ChatMessage[] = [];
 
-  isConversationLoading = false;
   isPipelineLoading = false;
   get isLoading(): boolean {
-    return this.isConversationLoading || this.isPipelineLoading;
+    return this.isPipelineLoading;
   }
 
-  sidebarHistory: ConversationSummary[] = [];
-  activeConversationId = '';
-  allConversations = new Map<string, ChatMessage[]>();
   private shouldScroll = false;
 
   showScrollToBottomButton = false;
@@ -111,13 +94,8 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
 
   private pendingPromptMessage: ChatMessage | null = null;
   private pendingPipelineId: string | null = null;
-  private pendingConversationId: string | null = null;
-
-  private readonly apiUrl = environment.apiUrl;
-
-  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  private readonly http = inject(HttpClient);
+  private readonly route = inject(ActivatedRoute);
   private readonly pipeline = inject(SecureFlowPipelineService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly cdr = inject(ChangeDetectorRef);
@@ -125,6 +103,9 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   readonly theme = inject(Theme);
   private readonly token = inject(Token);
   private readonly auth = inject(Auth);
+
+  private readonly chatSession = inject(ChatSessionService);
+  private chatId: string | null = null;
 
   private renderQueued = false;
   private composerKeyHandlerBound = false;
@@ -134,11 +115,12 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   private requestRender(immediate = false): void {
     this.cdr.markForCheck();
 
+
     const run = () => {
       this.renderQueued = false;
       try {
         this.cdr.detectChanges();
-      } catch {}
+      } catch { }
     };
 
     if (immediate) {
@@ -202,20 +184,12 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
         this.requestRender(true);
       });
 
-    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
-      const id = params.get('conversationId');
-      if (id) {
-        this.stopTypingAnimation(true);
-        this.conversationId = id;
-        this.activeConversationId = id;
-        const saved = this.allConversations.get(id);
-        this.messages = saved ? this.ensureRenderedMessages(saved) : [];
-        this.clearPendingPromptTracking();
-        this.requestRender();
-      } else {
-        this.startNewConversation();
-      }
-    });
+    this.route.paramMap
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((params) => {
+        const id = params.get('chatId');
+        this.chatId = id;
+      });
   }
 
   private normalizeRole(role: unknown): NormalizedRole {
@@ -417,7 +391,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
       } catch {
         try {
           el.focus();
-        } catch {}
+        } catch { }
       }
     };
 
@@ -568,16 +542,11 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   private clearPendingPromptTracking(): void {
     this.pendingPromptMessage = null;
     this.pendingPipelineId = null;
-    this.pendingConversationId = null;
   }
 
   private tryAttachPromptHighlights(state: SecureFlowPipelineState): void {
     const pending = this.pendingPromptMessage;
     if (!pending) {
-      return;
-    }
-
-    if (this.pendingConversationId && this.pendingConversationId !== this.conversationId) {
       return;
     }
 
@@ -885,14 +854,6 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
     return 'Something went wrong. Please try again.';
   }
 
-  private createConversationId(): string {
-    try {
-      return crypto.randomUUID();
-    } catch {
-      return Math.random().toString(36).slice(2);
-    }
-  }
-
   private resetFileInput(): void {
     this.selectedFile = null;
     const el = this.fileInputRef?.nativeElement;
@@ -902,10 +863,6 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   }
 
   pipelineStatusText(): string {
-    if (this.isConversationLoading) {
-      return 'Starting conversation';
-    }
-
     switch (this.pipelineStage) {
       case 'UPLOADING':
         return 'Uploading';
@@ -929,52 +886,30 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   }
 
   startNewConversation(): void {
-    this.isConversationLoading = true;
-    this.clearPendingPromptTracking();
+    this.messages = [];
 
-    this.autoScroll = true;
-    this.showScrollToBottomButton = false;
-
-    this.requestRender();
-
-    this.http.post<SessionResponse>(`${this.apiUrl}/chat/conversation`, {}).subscribe({
-      next: (res: SessionResponse) => {
-        this.conversationId = res.conversationId;
-        this.activeConversationId = this.conversationId;
-        this.messages = [];
-        this.shouldScroll = true;
-        this.router.navigate(['/chat', this.conversationId]);
-        this.isConversationLoading = false;
+    this.chatSession.createChat().subscribe({
+      next: (session) => {
+        this.chatId = session.chatId;
+        this.router.navigate(['/chat', session.chatId]);
         this.requestRender();
       },
       error: (err) => {
-        console.error('Error creating conversation', err);
-
-        // UX: if backend is down, still allow local navigation.
-        const fallbackId = this.createConversationId();
-        this.conversationId = fallbackId;
-        this.activeConversationId = fallbackId;
-        this.messages = [];
-        this.shouldScroll = true;
-        this.router.navigate(['/chat', fallbackId]);
-
-        this.isConversationLoading = false;
+        console.error('Failed to create chat session:', err);
+        this.messages.push({
+          role: 'ai',
+          content: 'Failed to start a new conversation. Please try again.',
+          html: this.markdownToSafeHtml('Failed to start a new conversation. Please try again.'),
+          time: this.getTime(),
+        });
         this.requestRender();
-      },
-    });
+      }
+    })
   }
 
-  switchConversation(conv: ConversationSummary): void {
-    this.clearPendingPromptTracking();
-    this.messages = this.ensureRenderedMessages(conv.messages || []);
-    this.conversationId = conv.conversationId;
-    this.activeConversationId = conv.conversationId;
+  // switchConversation(conv:  sationSummary): void {
 
-    this.autoScroll = true;
-    this.showScrollToBottomButton = false;
-    this.shouldScroll = true;
-    this.router.navigate(['/chat', this.conversationId]);
-  }
+  // }
 
   sendMessage(): void {
     const text = this.userInput.trim();
@@ -987,7 +922,6 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
     this.messages.push(userMsg);
     this.pendingPromptMessage = userMsg;
     this.pendingPipelineId = null;
-    this.pendingConversationId = this.conversationId;
     this.userInput = '';
     this.shouldScroll = true;
 
@@ -998,7 +932,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
     this.lastModelUsed = null;
 
     this.pipeline
-      .startPipeline(text, this.selectedFile)
+      .startPipeline(text, this.selectedFile, this.chatId)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (res) => {
@@ -1016,8 +950,6 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
           this.messages.push(aiMsg);
           this.resetFileInput();
           this.shouldScroll = true;
-          this.updateSidebar(text, aiText);
-          this.allConversations.set(this.conversationId, [...this.messages]);
           this.startTypingAnimation(aiMsg);
           this.requestRender();
         },
@@ -1038,25 +970,6 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
       });
   }
 
-  private updateSidebar(userText: string, aiText: string): void {
-    const preview = aiText.replaceAll(/\s+/g, ' ').trim();
-    const existing = this.sidebarHistory.find((h) => h.conversationId === this.conversationId);
-    if (existing) {
-      existing.title = userText.substring(0, 30);
-      existing.preview = preview.substring(0, 40);
-      existing.messages = [...this.messages];
-      existing.time = 'Now';
-    } else {
-      this.sidebarHistory.unshift({
-        conversationId: this.conversationId,
-        title: userText.substring(0, 30),
-        preview: preview.substring(0, 40),
-        messages: [...this.messages],
-        time: 'Now',
-      } satisfies ConversationSummary);
-    }
-  }
-
   onKeyDown(event: KeyboardEvent): void {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
@@ -1075,7 +988,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
     } catch {
       try {
         el.scrollTop = el.scrollHeight;
-      } catch {}
+      } catch { }
     }
 
     this.autoScroll = true;
