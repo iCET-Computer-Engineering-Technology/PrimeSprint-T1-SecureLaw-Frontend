@@ -87,13 +87,88 @@
       </button>
     </div>
 
-    <div class="px-4 py-4 border-t border-zinc-800 flex items-center gap-3">
-      <div class="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center shrink-0">
-        <span class="text-white text-xs font-medium">EV</span>
-      </div>
-      <div class="flex-1 min-w-0">
-        <p class="text-xs font-medium text-zinc-200 truncate">Eleanor Voss</p>
-        <p class="text-xs text-zinc-600">Lawyer</p>
+    <div #userMenuWrap class="px-4 py-4 border-t border-zinc-800 relative">
+      <button
+        type="button"
+        (click)="toggleUserMenu($event)"
+        class="nav-trigger w-full flex items-center gap-3 text-left px-2 py-2 transition-colors"
+        aria-haspopup="menu"
+        [attr.aria-expanded]="userMenuOpen"
+        aria-label="Open user menu"
+      >
+        <div class="w-8 h-8 bg-zinc-700 flex items-center justify-center shrink-0">
+          <span class="text-white text-xs font-medium">{{ userInitials }}</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-medium text-white truncate">{{ currentUserName }}</p>
+          <p class="text-xs text-zinc-400">{{ roleLabel }}</p>
+        </div>
+
+        <svg
+          class="w-4 h-4 text-zinc-600 shrink-0"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7" />
+        </svg>
+      </button>
+
+      <div
+        *ngIf="userMenuOpen"
+        role="menu"
+        class="nav-dd absolute bottom-full left-4 right-4 mb-2 border shadow-xl z-50 overflow-hidden"
+      >
+        <ul class="py-1">
+          <li>
+            <button
+              type="button"
+              class="nav-dd-item"
+              [class.nav-dd-item--active]="isOnChat"
+              (click)="goToChatFromMenu()"
+              role="menuitem"
+            >
+              Go to Chat
+            </button>
+          </li>
+
+          <li *ngIf="canSeeAdminMenu">
+            <button
+              type="button"
+              class="nav-dd-item"
+              (click)="goToUserManagement()"
+              role="menuitem"
+            >
+              User Management
+            </button>
+          </li>
+
+          <li *ngIf="canSeeAdminMenu">
+            <button
+              type="button"
+              class="nav-dd-item"
+              (click)="goToAuditLogs()"
+              role="menuitem"
+            >
+              Audit Log
+            </button>
+          </li>
+
+          <li class="my-1 border-t border-zinc-100"></li>
+
+          <li>
+            <button
+              type="button"
+              class="nav-dd-item nav-dd-item--danger"
+              (click)="logout()"
+              role="menuitem"
+            >
+              Logout
+            </button>
+          </li>
+        </ul>
       </div>
     </div>
   </aside>
@@ -255,7 +330,7 @@
             <div
               class="w-7 h-7 rounded-full user-av flex items-center justify-center shrink-0 mt-0.5 transition-colors"
             >
-              <span class="text-xs font-medium">EV</span>
+              <span class="text-xs font-medium">{{ userInitials }}</span>
             </div>
             <div class="flex-1">
               <div class="flex items-center gap-2 mb-1.5 justify-end">

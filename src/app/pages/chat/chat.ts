@@ -6,6 +6,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  HostListener,
   OnInit,
   ViewChild,
   inject,
@@ -26,6 +27,10 @@ import DOMPurify from 'dompurify';
 import { SensitiveDataItem } from '../../models/secure-flow.model';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Theme } from '../../core/services/theme';
+import { Token } from '../../core/services/token';
+import { Auth } from '../../core/services/auth';
+
+type NormalizedRole = 'SENIOR' | 'JUNIOR' | '';
 
 interface SessionResponse {
   conversationId: string;
@@ -71,6 +76,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   @ViewChild('chatScroll') chatScrollRef!: ElementRef<HTMLElement>;
   @ViewChild('fileInput') fileInputRef?: ElementRef<HTMLInputElement>;
   @ViewChild('composer') composerRef?: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('userMenuWrap') userMenuWrapRef?: ElementRef<HTMLElement>;
 
   conversationId = '';
   userInput = '';
@@ -95,6 +101,10 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
 
   selectedFile: File | null = null;
 
+  userMenuOpen = false;
+  currentUserName = 'User';
+  currentUserRole: NormalizedRole = '';
+
   pipelineStage: SecureFlowPipelineStage = 'IDLE';
   pipelineError: unknown = null;
   lastModelUsed: string | null = null;
@@ -113,6 +123,8 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly sanitizer = inject(DomSanitizer);
   readonly theme = inject(Theme);
+  private readonly token = inject(Token);
+  private readonly auth = inject(Auth);
 
   private renderQueued = false;
   private composerKeyHandlerBound = false;
@@ -172,6 +184,8 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
     this.destroyRef.onDestroy(() => this.stopTypingAnimation(true));
     this.destroyRef.onDestroy(() => this.unbindComposerKeyHandler());
 
+    this.loadCurrentUser();
+
     this.pipeline.state$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((state: SecureFlowPipelineState) => {
@@ -202,6 +216,158 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
         this.startNewConversation();
       }
     });
+  }
+
+  private normalizeRole(role: unknown): NormalizedRole {
+    const normalized = (role ?? '').toString().trim().toUpperCase();
+    if (normalized.startsWith('ROLE_')) {
+      return normalized.slice('ROLE_'.length) as NormalizedRole;
+    }
+    if (normalized === 'SENIOR' || normalized === 'JUNIOR') {
+      return normalized;
+    }
+    return '';
+  }
+
+  get role(): NormalizedRole {
+    return this.currentUserRole || this.normalizeRole(this.token.getRole());
+  }
+
+  get roleLabel(): string {
+    switch (this.role) {
+      case 'SENIOR':
+        return 'Senior Lawyer';
+      case 'JUNIOR':
+        return 'Junior Lawyer';
+      default:
+        return 'Lawyer';
+    }
+  }
+
+  get userInitials(): string {
+    const name = (this.currentUserName ?? '').trim();
+    if (!name) {
+      return 'U';
+    }
+
+    const parts = name
+      .split(/\s+/g)
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    const first = parts[0]?.[0] ?? '';
+    const last = (parts.length > 1 ? parts[parts.length - 1] : '')?.[0] ?? '';
+    const initials = (first + last).toUpperCase();
+    return initials || 'U';
+  }
+
+  get canSeeAdminMenu(): boolean {
+    return this.role === 'SENIOR';
+  }
+
+  private loadCurrentUser(): void {
+    // Fast initial values from localStorage.
+    this.currentUserRole = this.normalizeRole(this.token.getRole());
+
+    // Prefer server truth when available.
+    this.auth
+      .me()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res: unknown) => {
+          const me = res as {
+            username?: unknown;
+            name?: unknown;
+            email?: unknown;
+            role?: unknown;
+          };
+
+          const name =
+            (typeof me.name === 'string' && me.name.trim())
+              ? me.name
+              : (typeof me.username === 'string' && me.username.trim())
+                ? me.username
+                : (typeof me.email === 'string' && me.email.trim())
+                  ? me.email
+                  : '';
+
+          if (name) {
+            this.currentUserName = name;
+          }
+          this.currentUserRole = this.normalizeRole(me.role ?? this.currentUserRole);
+          this.requestRender();
+        },
+        error: () => {
+          // Non-fatal: keep fallback values.
+        },
+      });
+  }
+
+  toggleUserMenu(event?: Event): void {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    this.userMenuOpen = !this.userMenuOpen;
+    this.requestRender();
+  }
+
+  closeUserMenu(): void {
+    if (!this.userMenuOpen) {
+      return;
+    }
+    this.userMenuOpen = false;
+    this.requestRender();
+  }
+
+  get isOnChat(): boolean {
+    const url = this.router.url ?? '';
+    return url.startsWith('/chat');
+  }
+
+  goToChatFromMenu(): void {
+    this.closeUserMenu();
+    //this.startNewConversation();
+  }
+
+  goToUserManagement(): void {
+    this.closeUserMenu();
+    this.router.navigate(['/admin/user-management']);
+  }
+
+  goToAuditLogs(): void {
+    this.closeUserMenu();
+    this.router.navigate(['/admin/audit-logs']);
+  }
+
+  logout(): void {
+    this.closeUserMenu();
+    this.token.clear();
+    this.router.navigate(['/login']);
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (!this.userMenuOpen) {
+      return;
+    }
+
+    const wrap = this.userMenuWrapRef?.nativeElement;
+    const target = event.target as Node | null;
+    if (!wrap || !target) {
+      return;
+    }
+
+    if (!wrap.contains(target)) {
+      this.closeUserMenu();
+    }
+  }
+
+  @HostListener('document:keydown.escape', ['$event'])
+  onEscape(event: Event): void {
+    if (!this.userMenuOpen) {
+      return;
+    }
+    event.preventDefault();
+    this.closeUserMenu();
   }
 
   private bindComposerKeyHandler(): void {
