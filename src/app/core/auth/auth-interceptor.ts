@@ -1,7 +1,6 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 
-export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
-
+export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const token = localStorage.getItem("token");
 
   if (token) {
@@ -11,6 +10,6 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
       }
     });
     return next(authReq);
-  }
+  } 
   return next(req);
 };
