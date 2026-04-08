@@ -1,9 +1,8 @@
 import { Component, inject } from '@angular/core';
-import { Auth } from '../../core/services/auth';
-import { Token } from '../../core/services/token';
 import { Router } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LoginRequest } from '../../models/auth';
+import { Auth } from '../../core/auth/auth';
 
 @Component({
   selector: 'app-login',
@@ -18,7 +17,6 @@ export class Login {
 
   constructor(
     private authService: Auth,
-    private tokenService: Token,
     private router: Router
   ) { }
 
@@ -34,9 +32,6 @@ export class Login {
     }
 
     this.authService.login(this.loginForm.value as LoginRequest).subscribe((res: any) => {
-
-      this.tokenService.setToken(res.token);
-      this.tokenService.setRole(res.role);
 
       if (res.role === 'SENIOR') {
         this.router.navigate(['/admin/user-management']);

@@ -1,11 +1,15 @@
-import { Component } from '@angular/core';
+export interface LoginRequest {
+  usernameOrEmail: string;
+  password: string;
+}
 
-@Component({
-  selector: 'app-models',
-  imports: [],
-  templateUrl: './models.html',
-  styleUrl: './models.css',
-})
-export class Models {
+export interface LoginResponse {
+  accessToken?: string;
+  accessTokenExpiresAt?: string;
+  role?: string;
+}
 
+export interface RefreshResponse {
+  accessToken: string;
+  accessTokenExpiresAt: string;
 }
