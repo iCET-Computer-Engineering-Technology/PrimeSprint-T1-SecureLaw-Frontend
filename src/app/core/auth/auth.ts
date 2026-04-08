@@ -1,7 +1,7 @@
-import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { LoginRequest } from '../../models/auth';
 import { environment } from '../../../environments/environment';
+import { LoginRequest } from '../../models/auth';
+import { HttpClient } from '@angular/common/http';
 
 @Injectable({
   providedIn: 'root',
@@ -9,7 +9,7 @@ import { environment } from '../../../environments/environment';
 export class Auth {
   API = `${environment.apiUrl}/api/auth`;
 
-  constructor(private http: HttpClient) {}
+  constructor(private readonly http: HttpClient) {}
 
   login(data: LoginRequest) {
     return this.http.post(`${this.API}/login`, data);
@@ -20,6 +20,6 @@ export class Auth {
   }
 
   me() {
-    return this.http.get(`${environment.apiUrl}/api/auth/me`);
+    return this.http.get(`${this.API}/me`);
   }
 }
