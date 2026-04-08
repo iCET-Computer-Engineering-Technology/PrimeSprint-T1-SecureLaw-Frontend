@@ -1,11 +1,16 @@
 import { inject } from '@angular/core';
+import { readonly } from '@angular/forms/signals';
 import { CanActivateFn, Router } from '@angular/router';
+import { ChatSessionService } from '../services/chat-session.service';
+
 
 export const authGuard: CanActivateFn = (route, state) => {
 
   const router = inject(Router);
+  const chatSession = inject(ChatSessionService);
   const token = localStorage.getItem("token");
   const userRole = localStorage.getItem("role");
+
 
   // If navigating to login and already logged in, redirect based on role
   if (state.url === '/login' || state.url === '/') {
@@ -16,7 +21,14 @@ export const authGuard: CanActivateFn = (route, state) => {
     if (userRole === 'SENIOR') {
       router.navigate(['/admin/user-management']);
     } else {
-      router.navigate(['/chat/' + Math.random().toString(36).substring(2, 10)]);
+      chatSession.createChat().subscribe({
+        next: (session) => {
+          router.navigate(['/chat', session.chatId]);
+        },
+        error: (err) => {
+          console.error('Failed to create chat session from navbar:', err);
+        },
+      });
     }
     return false;
   }
