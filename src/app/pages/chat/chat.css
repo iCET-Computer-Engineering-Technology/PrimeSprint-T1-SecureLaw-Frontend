@@ -259,6 +259,124 @@ textarea {
   outline: none;
 }
 
+/* Chat user dropdown — match NavBar dropdown styling */
+:host {
+  --nav-dd-bg: #ffffff;
+  --nav-border: #e4e4e7;
+  --nav-text: #18181b;
+  --nav-muted: #71717a;
+  --nav-hover: #f4f4f5;
+  --nav-active: #f4f4f5;
+  --nav-active-border: #18181b;
+  --nav-danger: #dc2626;
+  --nav-danger-hover-bg: #fef2f2;
+  --nav-danger-hover-text: #b91c1c;
+  --nav-dd-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  --nav-dd-radius: 12px;
+}
+
+:host-context(html[data-theme='dark']) {
+  --nav-dd-bg: #0f0f12;
+  --nav-border: #27272a;
+  --nav-text: #f4f4f5;
+  --nav-muted: #a1a1aa;
+  --nav-hover: #18181b;
+  --nav-active: #18181b;
+  --nav-active-border: #ffffff;
+  --nav-danger: #f87171;
+  --nav-danger-hover-bg: #7f1d1d;
+  --nav-danger-hover-text: #ffffff;
+  --nav-dd-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.55);
+}
+
+.nav-trigger {
+  border-radius: 12px;
+}
+
+.nav-trigger:hover {
+  background: var(--nav-hover);
+}
+
+.nav-trigger:active {
+  background: var(--nav-active);
+}
+
+.nav-trigger:focus-visible {
+  outline: 2px solid var(--nav-active-border);
+  outline-offset: 2px;
+}
+
+.nav-dd {
+  background: var(--nav-dd-bg);
+  border-color: var(--nav-border);
+  box-shadow: var(--nav-dd-shadow);
+}
+
+.nav-dd-item {
+  width: 100%;
+  text-align: left;
+  padding: 10px 16px;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--nav-text);
+  background: transparent;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.nav-dd-item--active {
+  background: var(--nav-active);
+  color: var(--nav-text);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--nav-active-border);
+}
+
+.nav-dd-item:hover {
+  background: var(--nav-hover);
+  color: var(--nav-text);
+}
+
+.nav-dd-item:focus-visible {
+  outline: 2px solid var(--nav-active-border);
+  outline-offset: -2px;
+}
+
+.nav-dd-item--danger {
+  color: var(--nav-danger);
+}
+
+.nav-dd-item--danger:hover {
+  background: var(--nav-danger-hover-bg);
+  color: var(--nav-danger-hover-text);
+  box-shadow: inset 0 0 0 1px var(--nav-danger);
+}
+
+.nav-dd ul {
+  background: var(--nav-dd-bg);
+}
+
+.nav-dd ul li + li .nav-dd-item {
+  border-top: 1px solid var(--nav-border);
+}
+
+.nav-dd ul li.border-t + li .nav-dd-item {
+  border-top: 0;
+}
+
+.nav-dd .border-zinc-100 {
+  border-color: var(--nav-border);
+}
+
+/* In the dark sidebar, make the trigger hover subtle so text stays readable */
+.sidebar-panel .nav-trigger:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.sidebar-panel .nav-trigger:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 /* Markdown rendering inside bubbles */
 .chat-markdown {
   line-height: 1.55;
