@@ -99,8 +99,6 @@ export class NavBar {
 
     this.chatSession.createChat().subscribe({
       next: (session) => {
-        console.log(session);
-        
         this.router.navigate(['/chat', session.chatId]);
       },
       error: (err) => {
