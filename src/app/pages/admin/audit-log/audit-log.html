@@ -180,7 +180,7 @@
  
           <!-- ─── ROW  ─── -->
 
-          @for (log of auditLogs; track $index) {
+          @for (log of paginatedLogs; track $index){
 
           <tr
             class="bg-row bg-white border-b b-light border-zinc-100 hover:bg-zinc-50 transition-colors duration-150 cursor-default"
@@ -346,22 +346,33 @@
 
     <!-- ══ PAGINATION ══ -->
     <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mt-5">
-      <p class="text-xs t-label text-zinc-400 order-2 sm:order-1 transition-colors duration-200">Showing 10 of 1,284
-        events</p>
+      <p class="text-xs t-label text-zinc-400 order-2 sm:order-1 transition-colors duration-200">Showing {{ paginatedLogs.length }} of {{ auditLogs.length }} events</p>
       <div class="flex items-center gap-1 order-1 sm:order-2">
         <button
+          (click)="currentPage = currentPage - 1"
+          [disabled]="currentPage === 1"
           class="pag-btn w-8 h-8 border border-zinc-200 text-zinc-400 text-xs flex items-center justify-center transition-colors"
           disabled>‹</button>
-        <button
-          class="pag-active w-8 h-8 border border-zinc-900 bg-zinc-900 text-white text-xs flex items-center justify-center transition-colors">1</button>
-        <button
+
+        <!-- Page numbers -->
+        @for (page of [].constructor(totalPages); let i = $index ; track $index) {
+          <button
+            class="pag-active w-8 h-8 border border-zinc-900 bg-zinc-900 text-white text-xs flex items-center justify-center transition-colors"
+            (click)="currentPage = i + 1"
+            [class.bg-zinc-900]="currentPage === i + 1"
+            [class.text-white]="currentPage === i + 1">
+            {{ i + 1 }}</button>
+        }
+        <!-- <button
           class="pag-btn w-8 h-8 border border-zinc-200 text-zinc-500 text-xs flex items-center justify-center hover:border-zinc-900 hover:text-zinc-900 transition-colors">2</button>
         <button
           class="pag-btn w-8 h-8 border border-zinc-200 text-zinc-500 text-xs flex items-center justify-center hover:border-zinc-900 hover:text-zinc-900 transition-colors">3</button>
         <span class="text-xs t-muted text-zinc-400 px-1">…</span>
         <button
-          class="pag-btn w-8 h-8 border border-zinc-200 text-zinc-500 text-xs flex items-center justify-center hover:border-zinc-900 hover:text-zinc-900 transition-colors">129</button>
+          class="pag-btn w-8 h-8 border border-zinc-200 text-zinc-500 text-xs flex items-center justify-center hover:border-zinc-900 hover:text-zinc-900 transition-colors">129</button> -->
         <button
+          (click)="currentPage = currentPage + 1"
+          [disabled]="currentPage === totalPages"
           class="pag-btn w-8 h-8 border border-zinc-200 text-zinc-400 text-xs flex items-center justify-center hover:border-zinc-900 hover:text-zinc-900 transition-colors">›</button>
       </div>
     </div>
