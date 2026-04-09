@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { NgZone, Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { NavBar } from '../../../components/nav-bar/nav-bar';
 import { AuditLogService} from '../../../services/audit-log';
 import { AuditLog } from '../../../models/audit-log';
@@ -24,9 +24,12 @@ export class AuditLogComponent implements OnInit {
   loading = false;
   error = '';
 
-  constructor(private auditLogService: AuditLogService) {}
-
+  constructor(
+    private auditLogService: AuditLogService,
+    private cdr: ChangeDetectorRef
+  ) {}
   ngOnInit(): void {
+    // Load audit logs once on init
     this.loadAuditLogs();
   }
 
@@ -36,14 +39,14 @@ export class AuditLogComponent implements OnInit {
     this.auditLogService.getAuditLogs().subscribe({
       next: (data) => {
         this.auditLogs = data;
-        console.log('API DATA:', data); // ADD THIS
         this.loading = false;
+
+        this.cdr.markForCheck();   // ✅ KEY FIX
       },
       error: (err) => {
-        this.error = 'Failed to load audit logs';
         console.error(err);
-        this.auditLogs = []; // prevent UI break
         this.loading = false;
+        this.cdr.markForCheck();   // also here
       }
     });
   }
@@ -79,57 +82,77 @@ export class AuditLogComponent implements OnInit {
 
   // MAIN FILTER FUNCTION
   applyFilters() {
-    console.log('Filter clicked'); // 👈 ADD THIS
+    console.log('Filter clicked'); 
     const { userId, fromDate, toDate } = this.filters;
 
     this.loading = true;
 
     // CASE 1: userId + date range
     if (userId && fromDate && toDate) {
-      console.log('In case 1'); // 👈 ADD THIS
+      console.log('In case 1'); 
       this.auditLogService.getByDateAndUser(userId, fromDate, toDate)
         .subscribe({
           next: (res) => {
             this.auditLogs = res;
             console.log('API DATA id and date:', res);
             this.loading = false;
+            this.cdr.markForCheck(); 
           },
-          error: () => this.loading = false
+          error: (err) => {
+            console.error('API ERROR:', err); 
+            this.loading = false;
+            this.cdr.markForCheck(); 
+          }
         });
+
+        console.log('End of case 1'); 
     }
 
     // CASE 2: only userId
     else if (userId) {
-      console.log('In case 2'); // 👈 ADD THIS
+      console.log('In case 2'); 
       this.auditLogService.getByUserId(userId)
         .subscribe({
           next: (res) => {
             this.auditLogs = res;
             console.log('API DATA id only:', res);
             this.loading = false;
+            this.cdr.markForCheck(); 
           },
-          error: () => this.loading = false
+          error: (err) => {
+            console.error('API ERROR:', err); 
+            this.loading = false;
+            this.cdr.markForCheck(); 
+          }
         });
+        console.log('End of case 2'); 
     }
 
     // CASE 3: only date range
     else if (fromDate && toDate) {
-      console.log('In case 3'); // 👈 ADD THIS
+      console.log('In case 3'); 
       this.auditLogService.getByDate(fromDate, toDate)
         .subscribe({
           next: (res) => {
             this.auditLogs = res;
             console.log('API DATA fromTodate:', res);
             this.loading = false;
+            this.cdr.markForCheck(); 
           },
-          error: () => this.loading = false
+          error: (err) => {
+            console.error('API ERROR:', err); 
+            this.loading = false;
+            this.cdr.markForCheck(); 
+          }
         });
+      console.log('End of case 3'); 
     }
 
     // CASE 4: no filters
     else {
-      console.log('In else'); // 👈 ADD THIS
+      console.log('In else'); 
       this.loadAuditLogs();
+      this.cdr.markForCheck(); 
     }
   }
 
@@ -142,6 +165,8 @@ export class AuditLogComponent implements OnInit {
     };
 
     this.loadAuditLogs();
+
+
   }
 
 

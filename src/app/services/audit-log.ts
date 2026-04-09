@@ -22,30 +22,56 @@ export class AuditLogService {
   constructor(private http: HttpClient) {}
 
   getAuditLogs(): Observable<AuditLog[]> {
-    return this.http.get<AuditLog[]>('http://localhost:8080/audit/get-all');
+    const token = localStorage.getItem('token');
+
+    return this.http.get<AuditLog[]>(
+      'http://localhost:8080/audit/get-all',
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
   }
 
   exportLogs() {
     return this.http.get('http://localhost:8080/audit/export-all-audit-logs-csv', {
-      responseType: 'blob' // 👈 VERY IMPORTANT
+      responseType: 'blob' 
     });
   }
 
   getByUserId(userId: string) {
-    return this.http.get<any[]>(`/audit/search-by-userId/${userId}`);
+    return this.http.get<any[]>(`http://localhost:8080/audit/search-by-userId/${userId}`);
   }
 
   getByDate(fromDate: string, toDate: string) {
     return this.http.get<any[]>(
-      `/audit/get-audit-by-date`,
-      { params: { fromDate, toDate } }
+      `http://localhost:8080/audit/get-audit-by-date`,
+      {
+        params: {
+          from: fromDate,   // ✅ FIXED
+          to: toDate        // ✅ FIXED
+        }
+      }
     );
   }
 
   getByDateAndUser(userId: string, fromDate: string, toDate: string) {
-    return this.http.get<any[]>(
-      `/audit/get-audit-by-date-and-userId`,
-      { params: { userId, fromDate, toDate } }
+    const token = localStorage.getItem('token');
+
+    return this.http.get<AuditLog[]>(
+      'http://localhost:8080/audit/get-audit-by-date-and-userId',
+      {
+        params: {
+          id: userId,       // ✅ FIXED
+          from: fromDate,   // ✅ FIXED
+          to: toDate        // ✅ FIXED
+        }
+      ,
+        headers: {
+          Authorization: `Bearer ${token}` 
+        }
+      }
     );
   }
 }
