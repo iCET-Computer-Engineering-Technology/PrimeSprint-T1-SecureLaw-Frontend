@@ -4,15 +4,29 @@ import { AuditLogService} from '../../../services/audit-log';
 import { AuditLog } from '../../../models/audit-log';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-
+import { BaseChartDirective } from 'ng2-charts';
+import { ChartData, ChartOptions, ChartType, Chart, registerables } from 'chart.js';
+Chart.register(...registerables);
 
 @Component({
   selector: 'app-audit-log',
-  imports: [CommonModule, NavBar, DatePipe, FormsModule],
+  standalone: true,
+  imports: [CommonModule, NavBar, DatePipe, FormsModule, BaseChartDirective],
   templateUrl: './audit-log.html',
-  styleUrl: './audit-log.css',
+  styleUrls: ['./audit-log.css'],
 })
 export class AuditLogComponent implements OnInit {
+
+  public piiChartData: ChartData<'line'> = {
+    labels: [],
+    datasets: []
+  };
+
+  public piiChartOptions: ChartOptions<'line'> = {
+    responsive: true
+  };
+
+  public piiChartType: ChartType = 'line';
 
   filters = {
     userId: '',
@@ -31,6 +45,7 @@ export class AuditLogComponent implements OnInit {
   ngOnInit(): void {
     // Load audit logs once on init
     this.loadAuditLogs();
+    this.loadPiiChart();
   }
 
   loadAuditLogs(): void {
@@ -48,6 +63,28 @@ export class AuditLogComponent implements OnInit {
         this.loading = false;
         this.cdr.markForCheck();   // also here
       }
+    });
+  }
+
+  loadPiiChart() {
+    this.auditLogService.getPiiStats().subscribe({
+      next: (data: any[]) => {
+
+        data.sort((a, b) => new Date(a.day).getTime() - new Date(b.day).getTime());
+
+        this.piiChartData = {
+          labels: data.map(d => d.day),
+          datasets: [
+            {
+              data: data.map(d => d.totalBlocked),
+              label: 'PII Masked'
+            }
+          ]
+        };
+      
+        this.cdr.markForCheck();
+      },
+      error: (err) => console.error(err)
     });
   }
 

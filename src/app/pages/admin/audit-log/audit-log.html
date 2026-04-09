@@ -65,7 +65,11 @@
 
       <!-- Chart -->
       <div class="relative h-[280px]">
-        <canvas id="piiChart"></canvas>
+        <canvas baseChart
+                [data]="piiChartData"
+                [options]="piiChartOptions"
+                [type]="'line'">
+        </canvas>
       </div>
 
     </div>

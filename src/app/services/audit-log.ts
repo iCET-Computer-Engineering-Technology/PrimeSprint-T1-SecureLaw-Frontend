@@ -14,6 +14,11 @@ export enum ActionType {
   TEST_ACTION = 'TEST_ACTION'
 }
 
+export interface PIIDailyCount {
+  day: string;       // e.g., "2026-04-01"
+  totalBlocked: number;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -32,6 +37,14 @@ export class AuditLogService {
         }
       }
     );
+  }
+
+  getPiiStats(): Observable<PIIDailyCount[]> {
+    return this.http.get<PIIDailyCount[]>('http://localhost:8080/audit/pii-daily-count',{
+      headers: {
+        Authorization: 'Bearer ' + localStorage.getItem('token')
+      }
+    });
   }
 
   exportLogs() {
