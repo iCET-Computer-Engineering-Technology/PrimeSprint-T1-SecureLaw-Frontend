@@ -19,6 +19,7 @@ import {
   SecureFlowPipelineService,
   SecureFlowPipelineState,
   SecureFlowPipelineStage,
+  PiiSpanConflict,
 } from '../../services/secure-flow-pipeline-service';
 import { environment } from '../../../environments/environment';
 import { marked } from 'marked';
@@ -99,6 +100,11 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   pipelineError: unknown = null;
   lastModelUsed: string | null = null;
 
+  piiConflict: PiiSpanConflict | null = null;
+  piiConflictSelectedType = '';
+  piiConflictsRemaining: number | null = null;
+  private pipelineIdFromState: string | null = null;
+
   private pendingPromptMessage: ChatMessage | null = null;
   private pendingPipelineId: string | null = null;
   private pendingConversationId: string | null = null;
@@ -178,6 +184,18 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
         this.pipelineStage = state.stage;
         this.isPipelineLoading = state.loading;
         this.pipelineError = state.error;
+
+        this.pipelineIdFromState = state.pipelineId ?? null;
+
+        this.piiConflictsRemaining =
+          typeof state.piiConflictsRemaining === 'number' ? state.piiConflictsRemaining : null;
+
+        const nextConflict = state.piiConflict ?? null;
+        const conflictChanged = nextConflict?.key !== this.piiConflict?.key;
+        this.piiConflict = nextConflict;
+        if (conflictChanged) {
+          this.piiConflictSelectedType = this.piiConflict?.types?.[0] ?? '';
+        }
 
         this.lastModelUsed =
           state.externalAiProvider && state.externalAiModel
@@ -747,6 +765,8 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
         return 'Extracting text';
       case 'DETECTING':
         return 'Detecting sensitive data';
+      case 'CONFIRMING':
+        return 'Confirming sensitive data';
       case 'MASKING':
         return 'Masking sensitive data';
       case 'EXTERNAL_AI':
@@ -760,6 +780,18 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
       default:
         return 'Working';
     }
+  }
+
+  confirmPiiConflict(): void {
+    const conflict = this.piiConflict;
+    const pipelineId = this.pipelineIdFromState;
+    const selected = (this.piiConflictSelectedType ?? '').trim();
+
+    if (!conflict || !pipelineId || !selected) {
+      return;
+    }
+
+    this.pipeline.confirmPiiSpanType(pipelineId, conflict.key, selected);
   }
 
   startNewConversation(): void {

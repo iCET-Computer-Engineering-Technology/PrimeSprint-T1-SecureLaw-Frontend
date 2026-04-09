@@ -289,7 +289,10 @@
           </div>
         </ng-container>
 
-        <div *ngIf="isLoading" class="flex items-start gap-3 max-w-3xl">
+        <div
+          *ngIf="isLoading && !(pipelineStage === 'CONFIRMING' && piiConflict)"
+          class="flex items-start gap-3 max-w-3xl"
+        >
           <div class="w-7 h-7 bg-zinc-900 flex items-center justify-center shrink-0 mt-0.5">
             <span class="text-white text-xs font-bold">AI</span>
           </div>
@@ -310,6 +313,54 @@
                   <span class="dot"></span>
                 </span>
               </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- PII duplicate-span confirmation (in-chat) -->
+        <div *ngIf="piiConflict" class="flex items-start gap-3 max-w-3xl">
+          <div class="w-7 h-7 bg-zinc-900 flex items-center justify-center shrink-0 mt-0.5">
+            <span class="text-white text-xs font-bold">AI</span>
+          </div>
+          <div class="flex-1">
+            <div class="flex items-baseline gap-2 mb-1.5">
+              <span class="text-xs font-medium msg-name">SecureLaw AI</span>
+              <span class="text-xs msg-time">{{ piiConflictsRemaining ? ('Remaining: ' + piiConflictsRemaining) : '' }}</span>
+            </div>
+            <div
+              class="ai-bubble border px-4 py-3.5 text-sm text-b leading-relaxed transition-colors"
+              [style.word-break]="'break-word'"
+            >
+              <div class="text-sm text-b">
+                Multiple types were detected for the same value. Pick the correct type.
+              </div>
+
+              <div class="bg-surface border border-s rounded-lg px-3 py-2 mt-3">
+                <div class="text-xs text-m">Value</div>
+                <div class="text-sm text-h wrap-break-word">{{ piiConflict.value }}</div>
+              </div>
+
+              <div class="mt-3 flex flex-wrap gap-2" aria-label="Select PII type">
+                <button
+                  *ngFor="let t of piiConflict.types"
+                  type="button"
+                  class="border border-s rounded-lg px-3 py-1 text-xs text-h transition-opacity hover:opacity-90"
+                  [class.bg-surface]="piiConflictSelectedType === t"
+                  [class.bg-input]="piiConflictSelectedType !== t"
+                  (click)="piiConflictSelectedType = t"
+                >
+                  {{ t }}
+                </button>
+              </div>
+
+              <button
+                type="button"
+                class="btn-send mt-4 px-4 py-2"
+                (click)="confirmPiiConflict()"
+                [disabled]="!piiConflictSelectedType"
+              >
+                Confirm
+              </button>
             </div>
           </div>
         </div>
@@ -385,4 +436,5 @@
       </div>
     </div>
   </div>
+
 </div>
