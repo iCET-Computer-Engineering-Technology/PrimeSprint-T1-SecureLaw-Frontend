@@ -331,6 +331,78 @@
               <span class="text-xs font-medium">{{ userInitials }}</span>
             </div>
             <div class="flex-1">
+              <div *ngIf="msg.attachment" class="sent-file-chip-wrap">
+                <div class="selected-file-chip sent-file-chip" aria-live="polite">
+                  <div
+                    class="selected-file-icon"
+                    [class.selected-file-icon--docx]="isAttachmentDocx(msg.attachment.name, msg.attachment.mimeType)"
+                    [class.selected-file-icon--pdf]="isAttachmentPdf(msg.attachment.name, msg.attachment.mimeType)"
+                    [class.selected-file-icon--txt]="isAttachmentTxt(msg.attachment.name, msg.attachment.mimeType)"
+                    aria-hidden="true"
+                  >
+                    <svg
+                      *ngIf="isAttachmentDocx(msg.attachment.name, msg.attachment.mimeType); else sentTypePdf"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                    >
+                      <rect x="4" y="3" width="16" height="18" rx="2" ry="2" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M8 8l2 8 2-6 2 6 2-8" />
+                    </svg>
+                    <ng-template #sentTypePdf>
+                      <svg
+                        *ngIf="isAttachmentPdf(msg.attachment.name, msg.attachment.mimeType); else sentTypeTxt"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M6.75 3.75h7.5L18 7.5v12.75a.75.75 0 0 1-.75.75h-10.5a.75.75 0 0 1-.75-.75V4.5a.75.75 0 0 1 .75-.75Zm7.5 0V7.5H18"
+                        />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 15h8M8 18h5" />
+                      </svg>
+                    </ng-template>
+                    <ng-template #sentTypeTxt>
+                      <svg
+                        *ngIf="isAttachmentTxt(msg.attachment.name, msg.attachment.mimeType); else sentGenericIcon"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M6.75 3.75h7.5L18 7.5v12.75a.75.75 0 0 1-.75.75h-10.5a.75.75 0 0 1-.75-.75V4.5a.75.75 0 0 1 .75-.75Zm7.5 0V7.5H18"
+                        />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 11h8M8 14h8M8 17h6" />
+                      </svg>
+                    </ng-template>
+                    <ng-template #sentGenericIcon>
+                      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M6.75 3.75h7.5L18 7.5v12.75a.75.75 0 0 1-.75.75h-10.5a.75.75 0 0 1-.75-.75V4.5a.75.75 0 0 1 .75-.75Zm7.5 0V7.5H18"
+                        />
+                      </svg>
+                    </ng-template>
+                  </div>
+                  <div class="selected-file-meta">
+                    <p class="selected-file-name" [attr.title]="msg.attachment.name">
+                      {{ getAttachmentDisplayName(msg.attachment.name) }}
+                    </p>
+                    <p class="selected-file-type">
+                      {{ getAttachmentTypeLabel(msg.attachment.name, msg.attachment.mimeType) }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div class="flex items-center gap-2 mb-1.5 justify-end">
                 <span class="text-xs font-medium msg-name">You</span>
                 <span class="text-xs msg-time">{{ msg.time }}</span>
@@ -404,13 +476,72 @@
       class="page-footer border-t border-s px-4 sm:px-6 lg:px-12 xl:px-20 py-4 shrink-0 transition-colors"
     >
       <div class="relative w-full">
-        <div class="relative w-full">
-          <!-- Textarea -->
-          <textarea
+        <div class="relative w-full" appDropZone (filesDropped)="onFilesDropped($event)">
+
+          <div *ngIf="selectedFile" class="selected-file-chip selected-file-chip--inside" aria-live="polite">
+            <div
+              class="selected-file-icon"
+              [class.selected-file-icon--docx]="isSelectedFileDocx()"
+              [class.selected-file-icon--pdf]="isSelectedFilePdf()"
+              [class.selected-file-icon--txt]="isSelectedFileTxt()"
+              aria-hidden="true"
+            >
+              <svg *ngIf="isSelectedFileDocx(); else fileTypePdf" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <rect x="4" y="3" width="16" height="18" rx="2" ry="2" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 8l2 8 2-6 2 6 2-8" />
+              </svg>
+              <ng-template #fileTypePdf>
+                <svg *ngIf="isSelectedFilePdf(); else fileTypeTxt" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M6.75 3.75h7.5L18 7.5v12.75a.75.75 0 0 1-.75.75h-10.5a.75.75 0 0 1-.75-.75V4.5a.75.75 0 0 1 .75-.75Zm7.5 0V7.5H18"
+                  />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M8 15h8M8 18h5" />
+                </svg>
+              </ng-template>
+              <ng-template #fileTypeTxt>
+                <svg *ngIf="isSelectedFileTxt(); else genericFileIcon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M6.75 3.75h7.5L18 7.5v12.75a.75.75 0 0 1-.75.75h-10.5a.75.75 0 0 1-.75-.75V4.5a.75.75 0 0 1 .75-.75Zm7.5 0V7.5H18"
+                  />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M8 11h8M8 14h8M8 17h6" />
+                </svg>
+              </ng-template>
+              <ng-template #genericFileIcon>
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M6.75 3.75h7.5L18 7.5v12.75a.75.75 0 0 1-.75.75h-10.5a.75.75 0 0 1-.75-.75V4.5a.75.75 0 0 1 .75-.75Zm7.5 0V7.5H18"
+                  />
+                </svg>
+              </ng-template>
+            </div>
+            <div class="selected-file-meta">
+              <p class="selected-file-name" [attr.title]="selectedFile.name">{{ getSelectedFileDisplayName() }}</p>
+              <p class="selected-file-type">{{ getSelectedFileTypeLabel() }}</p>
+            </div>
+            <button
+              type="button"
+              class="selected-file-remove"
+              (click)="removeSelectedFile()"
+              aria-label="Remove selected file"
+              title="Remove selected file"
+            >
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6l-12 12" />
+              </svg>
+            </button>
+          </div>
+          <textarea style="text-align: center; font-weight: 750; color: #1f2a3d; font-family: 'Cormorant Garamond', serif;"
             #composer
             rows="3"
             [(ngModel)]="userInput"
             (keydown)="onKeyDown($event)"
+            [style.paddingTop]="selectedFile ? '4.05rem' : '0.875rem'"
             placeholder="Ask a legal question..."
             class="w-full px-4 pt-3.5 pb-12 pr-24 pl-12 text-sm text-h bg-input placeholder-zinc-400 leading-relaxed resize-none rounded-xl"
           ></textarea>
@@ -422,7 +553,23 @@
             aria-label="Attach a file"
             title="Attach a file"
           >
-            📎
+            <svg
+              class="w-5 h-5"
+              aria-hidden="true"
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M7 8v8a5 5 0 1 0 10 0V6.5a3.5 3.5 0 1 0-7 0V15a2 2 0 0 0 4 0V8"
+              />
+            </svg>
           </label>
 
           <!-- Hidden File Input -->
@@ -430,6 +577,7 @@
             #fileInput
             type="file"
             id="fileInput"
+            accept=".pdf,.doc,.docx,.docm,.dotx,.txt"
             (change)="onFileSelected($event)"
             class="hidden"
           />
@@ -444,18 +592,34 @@
           </button>
         </div>
 
-        <!-- Show selected file -->
-        <div *ngIf="selectedFile" class="text-xs text-zinc-400 mt-2">
-          📄 {{ selectedFile.name }}
-        </div>
-
         <div
           *ngIf="pipelineStage === 'ERROR' && pipelineErrorText()"
           class="text-xs text-red-400 mt-2"
         >
           {{ pipelineErrorText() }}
         </div>
+
+        <div
+          *ngIf="fileValidationError"
+          class="text-xs text-amber-500 mt-2"
+          aria-live="polite"
+        >
+          {{ fileValidationError }}
+        </div>
       </div>
+    </div>
+  </div>
+
+  <div *ngIf="isDragging" class="drag-drop-overlay">
+    <div class="drag-drop-content">
+      <div class="drag-drop-icon-group">
+        <div class="file-icon">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3.75h7.5L18 7.5v12.75a.75.75 0 0 1-.75.75h-10.5a.75.75 0 0 1-.75-.75V4.5a.75.75 0 0 1 .75-.75Zm7.5 0V7.5H18" />
+          </svg>
+        </div>
+      </div>
+      <p class="drag-drop-text">Drop files here to add to chat</p>
     </div>
   </div>
 </div>
