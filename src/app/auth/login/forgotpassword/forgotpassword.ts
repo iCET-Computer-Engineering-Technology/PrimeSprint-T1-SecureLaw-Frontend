@@ -3,6 +3,12 @@ import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { UserService } from '../../../services/user.service';
+
+interface AuthDto {
+  email: string;
+  newPassword: string;
+}
 
 @Component({
   selector: 'app-forgotpassword',
@@ -10,62 +16,32 @@ import { RouterLink } from '@angular/router';
   styleUrl: './forgotpassword.css',
   imports: [CommonModule, FormsModule,RouterLink],
   standalone: true,
-})
-export class Forgotpassword {
-  email = '';
-  newPassword = '';
-  confirmPassword = '';
-  message = '';
-  messageType: 'success' | 'error' | '' = '';
-  loading = false;
-  showSuccessModal = false;
+}) 
 
+export class Forgotpassword {
+ 
   private baseUrl = 'http://localhost:8080/api/auth';
 
   constructor(private http: HttpClient) {}  
 
-  onSubmit() {
-    if (!this.email || !this.newPassword || !this.confirmPassword) {
-      this.showMessage('Please fill in all fields.', 'error');
-      return;
-    }
-   
-    if (this.newPassword !== this.confirmPassword) {
-      this.showMessage('Passwords do not match.', 'error');
-      return;
-    }
+  authDto: AuthDto = {
+    email: '',
+    newPassword: ''
+  };
 
-    this.loading = true;
-    this.resetPassword({ email: this.email, newPassword: this.newPassword }).subscribe({
-      next: () => {
-        this.showSuccessModal = true;
-        this.email = '';
-        this.newPassword = '';
-        this.confirmPassword = '';
+  forgotPassword() {
+    this.http.post(`${this.baseUrl}/forgot-password`, this.authDto).subscribe(
+      response => {
+        console.log('Password reset successful', response);
+        alert('Password reset successful. Please check your email for further instructions.');
       },
-      error: () => {
-        this.showMessage('Failed to reset password. Please try again.', 'error');
-      },
-      complete: () => {
-        this.loading = false;
+      error => {
+        console.error('Error resetting password', error);
+        alert('Error resetting password. Please try again later.');
       }
-    });
-  }
+    );  
 
-  resetPassword(data: any) {
-    return this.http.post(`${this.baseUrl}/users/reset-password`, data);
   }
-
-  showMessage(msg: string, type: 'success' | 'error') {
-    this.message = msg;
-    this.messageType = type;
-    setTimeout(() => {
-      this.message = '';
-      this.messageType = '';
-    }, 4000);
-  }
-
-  closeModal() {
-    this.showSuccessModal = false;
-  }
+ 
+ 
 }
