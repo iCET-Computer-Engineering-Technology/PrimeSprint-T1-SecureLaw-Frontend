@@ -29,6 +29,7 @@ import { Theme } from '../../core/services/theme';
 import { Token } from '../../core/services/token';
 import { Auth } from '../../core/services/auth';
 import { ChatSessionService } from '../../services/chat-session.service';
+import { DropZoneDirective } from './DropZoneDirective';
 
 type NormalizedRole = 'SENIOR' | 'JUNIOR' | '';
 
@@ -37,6 +38,7 @@ interface ChatMessage {
   content: string;
   html?: SafeHtml;
   time: string;
+  attachment?: { name: string; mimeType?: string };
   model?: string;
   warnings?: Array<{ type: string; token: string; message: string }>;
 
@@ -55,7 +57,7 @@ interface ChatTextSegment {
 
 @Component({
   selector: 'app-chat',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DropZoneDirective],
   templateUrl: './chat.html',
   styleUrls: ['./chat.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -83,6 +85,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   private activeTypingMessage: ChatMessage | null = null;
 
   selectedFile: File | null = null;
+  fileValidationError: string | null = null;
 
   userMenuOpen = false;
   currentUserName = 'User';
@@ -91,6 +94,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   pipelineStage: SecureFlowPipelineStage = 'IDLE';
   pipelineError: unknown = null;
   lastModelUsed: string | null = null;
+  private lastLoggedExtractedText: string | null = null;
 
   private pendingPromptMessage: ChatMessage | null = null;
   private pendingPipelineId: string | null = null;
@@ -162,6 +166,213 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
     this.focusComposer(false);
   }
 
+
+
+  getSelectedFileTypeLabel(): string {
+    const file = this.selectedFile;
+    if (!file) {
+      return 'FILE';
+    }
+
+    const mimeSubtype = file.type?.split('/')[1]?.trim();
+    if (mimeSubtype) {
+      return mimeSubtype.toUpperCase();
+    }
+
+    const ext = file.name.split('.').pop()?.trim();
+    return ext ? ext.toUpperCase() : 'FILE';
+  }
+
+  getSelectedFileDisplayName(): string {
+    const file = this.selectedFile;
+    if (!file) {
+      return '';
+    }
+
+    return this.shortenFileName(file.name, 42);
+  }
+
+  getAttachmentDisplayName(name: string): string {
+    return this.shortenFileName(name, 42);
+  }
+
+  private shortenFileName(name: string, maxLength: number): string {
+    const originalName = (name ?? '').trim();
+    if (!originalName) {
+      return '';
+    }
+
+    if (originalName.length <= maxLength) {
+      return originalName;
+    }
+
+    const dotIndex = originalName.lastIndexOf('.');
+    const hasExt = dotIndex > 0 && dotIndex < originalName.length - 1;
+    if (!hasExt) {
+      return `${originalName.slice(0, maxLength - 1)}...`;
+    }
+
+    const extension = originalName.slice(dotIndex);
+    const baseName = originalName.slice(0, dotIndex);
+    const reserved = extension.length + 3;
+    const available = Math.max(10, maxLength - reserved);
+
+    if (baseName.length <= available) {
+      return originalName;
+    }
+
+    const head = Math.ceil(available * 0.65);
+    const tail = Math.max(3, available - head);
+    return `${baseName.slice(0, head)}...${baseName.slice(-tail)}${extension}`;
+  }
+
+  private getFileExtensionFromName(name: string): string {
+    return name.split('.').pop()?.trim().toLowerCase() ?? '';
+  }
+
+  getAttachmentTypeLabel(name: string, mimeType?: string): string {
+    const mimeSubtype = mimeType?.split('/')[1]?.trim();
+    if (mimeSubtype) {
+      return mimeSubtype.toUpperCase();
+    }
+
+    const ext = this.getFileExtensionFromName(name);
+    return ext ? ext.toUpperCase() : 'FILE';
+  }
+
+  isAttachmentPdf(name: string, mimeType?: string): boolean {
+    const mime = mimeType?.toLowerCase() ?? '';
+    if (mime === 'application/pdf') {
+      return true;
+    }
+
+    return this.getFileExtensionFromName(name) === 'pdf';
+  }
+
+  isAttachmentDocx(name: string, mimeType?: string): boolean {
+    const mime = mimeType?.toLowerCase() ?? '';
+    if (
+      mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      mime === 'application/msword' ||
+      mime === 'application/vnd.ms-word.document.macroenabled.12'
+    ) {
+      return true;
+    }
+
+    const ext = this.getFileExtensionFromName(name);
+    return ext === 'docx' || ext === 'doc' || ext === 'docm' || ext === 'dotx';
+  }
+
+  isAttachmentTxt(name: string, mimeType?: string): boolean {
+    const mime = mimeType?.toLowerCase() ?? '';
+    if (mime === 'text/plain') {
+      return true;
+    }
+
+    return this.getFileExtensionFromName(name) === 'txt';
+  }
+
+  private getSelectedFileExtension(): string {
+    const file = this.selectedFile;
+    if (!file) {
+      return '';
+    }
+
+    return file.name.split('.').pop()?.trim().toLowerCase() ?? '';
+  }
+
+  private getFileExtension(file: File): string {
+    return file.name.split('.').pop()?.trim().toLowerCase() ?? '';
+  }
+
+  private isSupportedFile(file: File): boolean {
+    const ext = this.getFileExtension(file);
+    if (ext === 'pdf' || ext === 'doc' || ext === 'docx' || ext === 'docm' || ext === 'dotx' || ext === 'txt') {
+      return true;
+    }
+
+    const mime = file.type.toLowerCase();
+    return (
+      mime === 'application/pdf' ||
+      mime === 'application/msword' ||
+      mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      mime === 'application/vnd.ms-word.document.macroenabled.12' ||
+      mime === 'text/plain'
+    );
+  }
+
+  private trySelectFile(file: File | null): void {
+    if (!file) {
+      this.selectedFile = null;
+      this.fileValidationError = null;
+      return;
+    }
+
+    if (!this.isSupportedFile(file)) {
+      this.selectedFile = null;
+      this.fileValidationError = 'Unsupported file type. Please upload PDF, DOC/DOCX, or TXT files only.';
+      const el = this.fileInputRef?.nativeElement;
+      if (el) {
+        el.value = '';
+      }
+      return;
+    }
+
+    this.selectedFile = file;
+    this.fileValidationError = null;
+  }
+
+  isSelectedFilePdf(): boolean {
+    const file = this.selectedFile;
+    if (!file) {
+      return false;
+    }
+
+    const mime = file.type.toLowerCase();
+    if (mime === 'application/pdf') {
+      return true;
+    }
+
+    return this.getSelectedFileExtension() === 'pdf';
+  }
+
+  isSelectedFileDocx(): boolean {
+    const file = this.selectedFile;
+    if (!file) {
+      return false;
+    }
+
+    const mime = file.type.toLowerCase();
+    if (
+      mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      mime === 'application/msword' ||
+      mime === 'application/vnd.ms-word.document.macroenabled.12'
+    ) {
+      return true;
+    }
+
+    const ext = this.getSelectedFileExtension();
+    return ext === 'docx' || ext === 'doc' || ext === 'docm' || ext === 'dotx';
+  }
+
+  isSelectedFileTxt(): boolean {
+    const file = this.selectedFile;
+    if (!file) {
+      return false;
+    }
+
+    const mime = file.type.toLowerCase();
+    if (mime === 'text/plain') {
+      return true;
+    }
+
+    return this.getSelectedFileExtension() === 'txt';
+  }
+
+  removeSelectedFile(): void {
+    this.resetFileInput();
+    this.requestRender();
+  }
   ngOnInit(): void {
     this.destroyRef.onDestroy(() => this.stopTypingAnimation(true));
     this.destroyRef.onDestroy(() => this.unbindComposerKeyHandler());
@@ -174,6 +385,15 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
         this.pipelineStage = state.stage;
         this.isPipelineLoading = state.loading;
         this.pipelineError = state.error;
+
+        if (
+          typeof state.extractedText === 'string' &&
+          state.extractedText.length > 0 &&
+          state.extractedText !== this.lastLoggedExtractedText
+        ) {
+          console.log('[SecureLaw] chat text preview', state.extractedText);
+          this.lastLoggedExtractedText = state.extractedText;
+        }
 
         this.lastModelUsed =
           state.externalAiProvider && state.externalAiModel
@@ -799,7 +1019,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement | null;
     const file = input?.files?.item(0) ?? null;
-    this.selectedFile = file;
+    this.trySelectFile(file);
     this.requestRender();
   }
 
@@ -826,6 +1046,76 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
     }
 
     return null;
+  }
+  isDragging = false;
+  private dragCounter = 0;
+
+  private isFileDrag(event: DragEvent): boolean {
+    const types = event.dataTransfer?.types;
+    return !!types && Array.from(types).includes('Files');
+  }
+
+  @HostListener('document:dragenter', ['$event'])
+  onDocumentDragEnter(event: DragEvent): void {
+    if (!this.isFileDrag(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    this.dragCounter += 1;
+    if (!this.isDragging) {
+      this.isDragging = true;
+      this.requestRender();
+    }
+  }
+
+  @HostListener('document:dragover', ['$event'])
+  onDocumentDragOver(event: DragEvent): void {
+    if (!this.isFileDrag(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    if (!this.isDragging) {
+      this.isDragging = true;
+      this.requestRender();
+    }
+  }
+
+  @HostListener('document:dragleave', ['$event'])
+  onDocumentDragLeave(event: DragEvent): void {
+    if (!this.isFileDrag(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    this.dragCounter = Math.max(0, this.dragCounter - 1);
+    if (this.dragCounter === 0 && this.isDragging) {
+      this.isDragging = false;
+      this.requestRender();
+    }
+  }
+
+  @HostListener('document:drop', ['$event'])
+  onDocumentDrop(event: DragEvent): void {
+    if (this.isFileDrag(event)) {
+      event.preventDefault();
+      const file = event.dataTransfer?.files?.item(0) ?? null;
+      this.trySelectFile(file);
+    }
+
+    this.dragCounter = 0;
+    if (this.isDragging) {
+      this.isDragging = false;
+    }
+    this.requestRender();
+  }
+
+  onFilesDropped(files: FileList): void {
+    this.trySelectFile(files.item(0) ?? null);
+    this.dragCounter = 0;
+    this.isDragging = false;
+    this.requestRender();
   }
 
   pipelineErrorText(): string | null {
@@ -856,6 +1146,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
 
   private resetFileInput(): void {
     this.selectedFile = null;
+    this.fileValidationError = null;
     const el = this.fileInputRef?.nativeElement;
     if (el) {
       el.value = '';
@@ -914,11 +1205,19 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   sendMessage(): void {
     const text = this.userInput.trim();
     if (!text || this.isLoading) return;
+    const fileToSend = this.selectedFile;
 
     this.autoScroll = true;
     this.showScrollToBottomButton = false;
 
-    const userMsg: ChatMessage = { role: 'user', content: text, time: this.getTime() };
+    const userMsg: ChatMessage = {
+      role: 'user',
+      content: text,
+      time: this.getTime(),
+      attachment: fileToSend
+        ? { name: fileToSend.name, mimeType: fileToSend.type }
+        : undefined,
+    };
     this.messages.push(userMsg);
     this.pendingPromptMessage = userMsg;
     this.pendingPipelineId = null;
@@ -930,9 +1229,10 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
 
     // Will be set from pipeline state once External AI responds.
     this.lastModelUsed = null;
+    this.resetFileInput();
 
     this.pipeline
-      .startPipeline(text, this.selectedFile, this.chatId)
+      .startPipeline(text, fileToSend, this.chatId)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (res) => {

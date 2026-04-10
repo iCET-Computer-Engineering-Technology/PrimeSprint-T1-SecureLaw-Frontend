@@ -301,6 +301,10 @@ export class SecureFlowPipelineService {
       ? this.extractTextApi.extract({ file }).pipe(
         tap((uploadRes) => {
           this.logInfo(`extractText (${pipelineId})`, uploadRes);
+          console.log('[SecureLaw] documents/upload preview', {
+            uploadId: uploadRes.uploadId,
+            textPreview: uploadRes.extractedText,
+          });
           this.patchStateFor(pipelineId, {
             stage: 'EXTRACTING',
             loading: true,
