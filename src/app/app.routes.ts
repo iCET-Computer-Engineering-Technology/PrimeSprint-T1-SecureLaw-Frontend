@@ -5,17 +5,26 @@ import { authGuard } from './guards/auth-guard';
 import { roleGuard } from './guards/role-guard';
 import { Chat } from './pages/chat/chat';
 import { AuditLog } from './pages/admin/audit-log/audit-log';
+import { ForgotPassword } from './pages/forgot-password/forgot-password';
+import { ResetPassword } from './pages/reset-password/reset-password';
 
 export const routes: Routes = [
   {
     path: '',
     redirectTo: 'login',
     pathMatch: 'full',
+  },{
+    path: 'reset-password',
+    component: ResetPassword,
   },
   {
     path: 'login',
     component: Login,
     canActivate: [authGuard],
+  },
+  {
+    path: 'forgot-password',
+    component: ForgotPassword,
   },
   {
     path: 'admin',
