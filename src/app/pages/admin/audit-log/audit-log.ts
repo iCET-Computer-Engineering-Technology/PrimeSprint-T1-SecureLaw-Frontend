@@ -104,12 +104,6 @@ export class AuditLogComponent implements OnInit {
     return maskCounts ? Object.keys(maskCounts) : [];
   }
 
-  selectedLog: AuditLog | null = null;
-
-  openLog(log: AuditLog) {
-    this.selectedLog = log;
-  }
-
   downloadCSV() {
     this.auditLogService.exportLogs().subscribe({
       next: (blob) => {
@@ -214,11 +208,17 @@ export class AuditLogComponent implements OnInit {
     };
 
     this.loadAuditLogs();
-
-
   }
 
+  selectedLog: AuditLog | null = null;
 
+  openLog(log: AuditLog) {
+    this.selectedLog = log;
+  }
+
+  closeModal() {
+    this.selectedLog = null;
+  }
 
 
 
