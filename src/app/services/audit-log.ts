@@ -39,12 +39,23 @@ export class AuditLogService {
     );
   }
 
-  getPiiStats(): Observable<PIIDailyCount[]> {
-    return this.http.get<PIIDailyCount[]>('http://localhost:8080/audit/pii-daily-count',{
-      headers: {
-        Authorization: 'Bearer ' + localStorage.getItem('token')
+  getPiiStats(filters?: any): Observable<PIIDailyCount[]> {
+
+    const params: any = {};
+
+    if (filters?.userId) params.userId = filters.userId;
+    if (filters?.fromDate) params.fromDate = filters.fromDate;
+    if (filters?.toDate) params.toDate = filters.toDate;
+
+    return this.http.get<PIIDailyCount[]>(
+      'http://localhost:8080/audit/pii-daily-count',
+      {
+        headers: {
+          Authorization: 'Bearer ' + localStorage.getItem('token')
+        },
+        params // ✅ THIS is the key change
       }
-    });
+    );
   }
 
   exportLogs() {

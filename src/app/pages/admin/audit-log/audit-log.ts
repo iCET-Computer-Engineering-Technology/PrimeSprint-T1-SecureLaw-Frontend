@@ -45,7 +45,7 @@ export class AuditLogComponent implements OnInit {
   ngOnInit(): void {
     // Load audit logs once on init
     this.loadAuditLogs();
-    this.loadPiiChart();
+
   }
 
   loadAuditLogs(): void {
@@ -53,10 +53,7 @@ export class AuditLogComponent implements OnInit {
 
     this.auditLogService.getAuditLogs().subscribe({
       next: (data) => {
-        this.auditLogs = data;
-        this.loading = false;
-
-        this.cdr.markForCheck();   // ✅ KEY FIX
+        this.applyData(data); // updates both table + chart
       },
       error: (err) => {
         console.error(err);
@@ -64,6 +61,7 @@ export class AuditLogComponent implements OnInit {
         this.cdr.markForCheck();   // also here
       }
     });
+    
   }
 
   currentPage = 1;
@@ -76,28 +74,6 @@ export class AuditLogComponent implements OnInit {
 
   get totalPages() {
     return Math.ceil(this.auditLogs.length / this.pageSize);
-  }
-
-  loadPiiChart() {
-    this.auditLogService.getPiiStats().subscribe({
-      next: (data: any[]) => {
-
-        data.sort((a, b) => new Date(a.day).getTime() - new Date(b.day).getTime());
-
-        this.piiChartData = {
-          labels: data.map(d => d.day),
-          datasets: [
-            {
-              data: data.map(d => d.totalBlocked),
-              label: 'PII Masked'
-            }
-          ]
-        };
-      
-        this.cdr.markForCheck();
-      },
-      error: (err) => console.error(err)
-    });
   }
 
   getMaskKeys(maskCounts: any): string[] {
@@ -136,10 +112,7 @@ export class AuditLogComponent implements OnInit {
       this.auditLogService.getByDateAndUser(userId, fromDate, toDate)
         .subscribe({
           next: (res) => {
-            this.auditLogs = res;
-            console.log('API DATA id and date:', res);
-            this.loading = false;
-            this.cdr.markForCheck(); 
+            this.applyData(res);
           },
           error: (err) => {
             console.error('API ERROR:', err); 
@@ -157,10 +130,7 @@ export class AuditLogComponent implements OnInit {
       this.auditLogService.getByUserId(userId)
         .subscribe({
           next: (res) => {
-            this.auditLogs = res;
-            console.log('API DATA id only:', res);
-            this.loading = false;
-            this.cdr.markForCheck(); 
+            this.applyData(res);
           },
           error: (err) => {
             console.error('API ERROR:', err); 
@@ -168,6 +138,7 @@ export class AuditLogComponent implements OnInit {
             this.cdr.markForCheck(); 
           }
         });
+        
         console.log('End of case 2'); 
     }
 
@@ -177,10 +148,7 @@ export class AuditLogComponent implements OnInit {
       this.auditLogService.getByDate(fromDate, toDate)
         .subscribe({
           next: (res) => {
-            this.auditLogs = res;
-            console.log('API DATA fromTodate:', res);
-            this.loading = false;
-            this.cdr.markForCheck(); 
+            this.applyData(res);  
           },
           error: (err) => {
             console.error('API ERROR:', err); 
@@ -188,6 +156,7 @@ export class AuditLogComponent implements OnInit {
             this.cdr.markForCheck(); 
           }
         });
+        
       console.log('End of case 3'); 
     }
 
@@ -207,7 +176,11 @@ export class AuditLogComponent implements OnInit {
       toDate: ''
     };
 
-    this.loadAuditLogs();
+    this.currentPage = 1;
+
+    this.auditLogService.getAuditLogs().subscribe(res => {
+      this.applyData(res);
+    });
   }
 
   selectedLog: AuditLog | null = null;
@@ -220,9 +193,67 @@ export class AuditLogComponent implements OnInit {
     this.selectedLog = null;
   }
 
+  private applyData(logs: AuditLog[]) {
+    this.auditLogs = logs;
+    this.loadPiiChartFromLogs(logs);
+
+    this.loading = false;
+    this.cdr.markForCheck();
+  }
+
+  loadPiiChartFromLogs(logs: AuditLog[]) {
+
+    const grouped: { [date: string]: number } = {};
+
+    logs.forEach(log => {
+      const date = new Date(log.timestamp).toISOString().split('T')[0];
+
+      const count = log.maskCounts
+        ? Object.values(log.maskCounts).reduce((a: any, b: any) => a + b, 0)
+        : 0;
+
+      grouped[date] = (grouped[date] || 0) + count;
+    });
+
+    const labels = Object.keys(grouped).sort();
+    const data = labels.map(d => grouped[d]);
+
+    this.piiChartData = {
+      labels,
+      datasets: [
+        {
+          label: 'PII Masked',
+          data,
+          tension: 0.3
+        }
+      ]
+    };
+  }
 
 
-  
+  loadPiiChart() {
+    this.auditLogService.getPiiStats().subscribe({
+      next: (data) => {
+
+        data.sort((a, b) =>
+          new Date(a.day).getTime() - new Date(b.day).getTime()
+        );
+
+        const finalData = data.slice(-7); // default view
+
+        this.piiChartData = {
+          labels: finalData.map(d => d.day),
+          datasets: [
+            {
+              label: 'PII Masked',
+              data: finalData.map(d => d.totalBlocked),
+              tension: 0.3
+            }
+          ]
+        };
+      }
+    });
+  }
 
 }
 
