@@ -390,6 +390,37 @@ textarea {
   gap: 6px;
 }
 
+/* PII Conflict Type Button Highlighting */
+.pii-type-btn {
+  border: 1.5px solid #18181b;
+  background: #18181b;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 1px 6px 0 rgba(24,24,27,0.10);
+  transition: background 0.2s, color 0.2s, border 0.2s;
+  outline: none;
+}
+.pii-type-btn:hover,
+.pii-type-btn:focus {
+  background: #3f3f46;
+  border-color: #18181b;
+  color: #fff;
+}
+
+/* Dark theme for selected PII type button */
+#themeCheck:checked ~ .page-bg .pii-type-btn {
+  background: #fff;
+  color: #18181b;
+  border-color: #f4f4f5;
+  box-shadow: 0 1px 6px 0 rgba(244,244,245,0.13);
+}
+#themeCheck:checked ~ .page-bg .pii-type-btn:hover,
+#themeCheck:checked ~ .page-bg .pii-type-btn:focus {
+  background: #e4e4e7;
+  color: #18181b;
+  border-color: #fff;
+}
+
 .loading-status {
   font-weight: 500;
 }

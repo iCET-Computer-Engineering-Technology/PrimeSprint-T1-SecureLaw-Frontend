@@ -11,7 +11,7 @@ import {
   inject,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -33,6 +33,7 @@ interface SessionResponse {
 }
 
 interface ChatMessage {
+  id: string;
   role: 'user' | 'ai';
   content: string;
   html?: SafeHtml;
@@ -63,7 +64,7 @@ interface ConversationSummary {
 
 @Component({
   selector: 'app-chat',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './chat.html',
   styleUrls: ['./chat.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -74,13 +75,24 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   @ViewChild('composer') composerRef?: ElementRef<HTMLTextAreaElement>;
 
   conversationId = '';
-  userInput = '';
+  readonly userInputControl = new FormControl<string>('', { nonNullable: true });
   messages: ChatMessage[] = [];
 
   isConversationLoading = false;
   isPipelineLoading = false;
   get isLoading(): boolean {
     return this.isConversationLoading || this.isPipelineLoading;
+  }
+
+  canSend(): boolean {
+    return this.userInputControl.value.trim().length > 0 && !this.isLoading;
+  }
+
+  // Replace all direct ChatMessage object creation with this method
+  private addMessage(msg: Omit<ChatMessage, 'id'>): ChatMessage {
+    const message = this.createMessage(msg);
+    this.messages.push(message);
+    return message;
   }
 
   sidebarHistory: ConversationSummary[] = [];
@@ -159,8 +171,17 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
     }
   }
 
+  private static nextId = 0;
+
   constructor() {
     marked.setOptions({ gfm: true, breaks: true });
+  }
+
+  private createMessage(partial: Omit<ChatMessage, 'id'>): ChatMessage {
+    return {
+      ...partial,
+      id: 'msg-' + Chat.nextId++,
+    };
   }
 
   onThemeCheckboxChange(event: Event): void {
@@ -311,12 +332,12 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
     if (event.key.length === 1) {
       event.preventDefault();
       this.focusComposer(false);
-      this.userInput = (this.userInput ?? '') + event.key;
+      this.userInputControl.setValue(this.userInputControl.value + event.key);
       this.requestRender(true);
     } else if (event.key === 'Backspace') {
       event.preventDefault();
       this.focusComposer(false);
-      this.userInput = (this.userInput ?? '').slice(0, -1);
+      this.userInputControl.setValue(this.userInputControl.value.slice(0, -1));
       this.requestRender(true);
     }
   }
@@ -843,18 +864,19 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   }
 
   sendMessage(): void {
-    const text = this.userInput.trim();
-    if (!text || this.isLoading) return;
+    const text = this.userInputControl.value.trim();
+    if (!text || this.isLoading) {
+      return;
+    }
 
     this.autoScroll = true;
     this.showScrollToBottomButton = false;
 
-    const userMsg: ChatMessage = { role: 'user', content: text, time: this.getTime() };
-    this.messages.push(userMsg);
+    const userMsg = this.addMessage({ role: 'user', content: text, time: this.getTime() });
     this.pendingPromptMessage = userMsg;
     this.pendingPipelineId = null;
     this.pendingConversationId = this.conversationId;
-    this.userInput = '';
+    this.userInputControl.setValue('');
     this.shouldScroll = true;
 
     // Ensure the sent message renders immediately.
@@ -869,7 +891,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
       .subscribe({
         next: (res) => {
           const aiText = res.finalText ?? '';
-          const aiMsg: ChatMessage = {
+          const aiMsg = this.addMessage({
             role: 'ai',
             content: aiText,
             html: this.markdownToSafeHtml(''),
@@ -878,8 +900,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
             warnings: res.warnings?.length ? res.warnings : undefined,
             typing: true,
             displayText: '',
-          };
-          this.messages.push(aiMsg);
+          });
           this.resetFileInput();
           this.shouldScroll = true;
           this.updateSidebar(text, aiText);
@@ -890,7 +911,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
         error: (err) => {
           console.error('Pipeline error:', err);
           const errMsg = this.pipelineErrorText() ?? 'Something went wrong. Please try again.';
-          this.messages.push({
+          this.addMessage({
             role: 'ai',
             content: errMsg,
             html: this.markdownToSafeHtml(errMsg),
