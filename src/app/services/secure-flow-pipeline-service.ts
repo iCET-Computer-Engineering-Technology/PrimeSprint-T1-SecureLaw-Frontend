@@ -550,7 +550,10 @@ export class SecureFlowPipelineService {
           extractedText: uploadRes.extractedText,
         });
       }),
-      map((uploadRes) => ({ uploadId: uploadRes.uploadId, extractedText: uploadRes.extractedText })),
+      map((uploadRes) => ({
+        uploadId: uploadRes.uploadId,
+        extractedText: uploadRes.extractedText,
+      })),
     );
   }
 
