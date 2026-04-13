@@ -1,5 +1,4 @@
 import { inject } from '@angular/core';
-import { readonly } from '@angular/forms/signals';
 import { CanActivateFn, Router } from '@angular/router';
 import { ChatSessionService } from '../services/chat-session.service';
 
@@ -26,7 +25,7 @@ export const authGuard: CanActivateFn = (route, state) => {
           router.navigate(['/chat', session.chatId]);
         },
         error: (err) => {
-          console.error('Failed to create chat session from navbar:', err);
+          console.error('Failed to create chat session during auth guard login redirect:', err);
         },
       });
     }
