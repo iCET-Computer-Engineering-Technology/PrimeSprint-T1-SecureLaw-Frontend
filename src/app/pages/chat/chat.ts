@@ -104,7 +104,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   private readonly token = inject(Token);
   private readonly auth = inject(Auth);
   private readonly chatSession = inject(ChatSessionService);
-  
+
   /**
    * The unique identifier for the current chat session.
    *
@@ -128,12 +128,11 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   private requestRender(immediate = false): void {
     this.cdr.markForCheck();
 
-
     const run = () => {
       this.renderQueued = false;
       try {
         this.cdr.detectChanges();
-      } catch { }
+      } catch {}
     };
 
     if (immediate) {
@@ -197,12 +196,10 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
         this.requestRender(true);
       });
 
-    this.route.paramMap
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((params) => {
-        const id = params.get('chatId');
-        this.chatId = id;
-      });
+    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      const id = params.get('chatId');
+      this.chatId = id;
+    });
   }
 
   private normalizeRole(role: unknown): NormalizedRole {
@@ -270,11 +267,11 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
           };
 
           const name =
-            (typeof me.name === 'string' && me.name.trim())
+            typeof me.name === 'string' && me.name.trim()
               ? me.name
-              : (typeof me.username === 'string' && me.username.trim())
+              : typeof me.username === 'string' && me.username.trim()
                 ? me.username
-                : (typeof me.email === 'string' && me.email.trim())
+                : typeof me.email === 'string' && me.email.trim()
                   ? me.email
                   : '';
 
@@ -403,7 +400,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
       } catch {
         try {
           el.focus();
-        } catch { }
+        } catch {}
       }
     };
 
@@ -782,7 +779,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
     const cleaned = DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } });
     return this.sanitizer.bypassSecurityTrustHtml(cleaned);
   }
-  
+
   ngAfterViewChecked(): void {
     if (this.shouldScroll) {
       this.scrollToBottom(false);
@@ -887,6 +884,10 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
         this.chatId = session.chatId;
         this.router.navigate(['/chat', session.chatId]);
         this.requestRender();
+        const sidebarCheck = document.getElementById('sidebarCheck') as HTMLInputElement | null;
+        if (sidebarCheck?.checked) {
+          sidebarCheck.checked = false;
+        }
       },
       error: (err) => {
         console.error('Failed to create chat session:', err);
@@ -897,13 +898,9 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
           time: this.getTime(),
         });
         this.requestRender();
-      }
-    })
+      },
+    });
   }
-
-  // switchConversation(conv:  sationSummary): void {
-
-  // }
 
   sendMessage(): void {
     const text = this.userInput.trim();
@@ -982,7 +979,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
     } catch {
       try {
         el.scrollTop = el.scrollHeight;
-      } catch { }
+      } catch {}
     }
 
     this.autoScroll = true;
