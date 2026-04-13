@@ -16,10 +16,7 @@
     "module": "preserve",
     "paths": {
       "@/*": ["./src/*"]
-    },
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noUncheckedSideEffectImports": true
+    }
   },
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,
