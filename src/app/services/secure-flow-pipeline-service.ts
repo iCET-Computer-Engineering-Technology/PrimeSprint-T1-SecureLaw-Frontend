@@ -299,20 +299,20 @@ export class SecureFlowPipelineService {
 
     const extracted$: Observable<{ uploadId?: string; extractedText: string | null }> = file
       ? this.extractTextApi.extract({ file }).pipe(
-        tap((uploadRes) => {
-          this.logInfo(`extractText (${pipelineId})`, uploadRes);
-          this.patchStateFor(pipelineId, {
-            stage: 'EXTRACTING',
-            loading: true,
+          tap((uploadRes) => {
+            this.logInfo(`extractText (${pipelineId})`, uploadRes);
+            this.patchStateFor(pipelineId, {
+              stage: 'EXTRACTING',
+              loading: true,
+              uploadId: uploadRes.uploadId,
+              extractedText: uploadRes.extractedText,
+            });
+          }),
+          map((uploadRes) => ({
             uploadId: uploadRes.uploadId,
             extractedText: uploadRes.extractedText,
-          });
-        }),
-        map((uploadRes) => ({
-          uploadId: uploadRes.uploadId,
-          extractedText: uploadRes.extractedText,
-        })),
-      )
+          })),
+        )
       : of({ extractedText: extractedTextFallback });
 
     return extracted$.pipe(
