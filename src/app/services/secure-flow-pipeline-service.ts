@@ -260,7 +260,7 @@ export class SecureFlowPipelineService {
     return new Error(msg ?? 'Something went wrong. Please try again.');
   }
 
-  startPipeline(prompt: string, file?: File | null, chatId?: string | null): Observable<RehydrateResponse> {
+  startPipeline(prompt: string, file?: File | null): Observable<RehydrateResponse> {
     if (this.state.value.loading) {
       return throwError(() => new Error('A request is already in progress. Please wait.'));
     }
