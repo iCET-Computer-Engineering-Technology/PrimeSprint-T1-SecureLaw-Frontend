@@ -103,8 +103,21 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   readonly theme = inject(Theme);
   private readonly token = inject(Token);
   private readonly auth = inject(Auth);
-
   private readonly chatSession = inject(ChatSessionService);
+  
+  /**
+   * The unique identifier for the current chat session.
+   *
+   * This is set from the route parameter (e.g., /chat/:chatId) and updated when starting a new conversation.
+   *
+   * While not strictly required for the current implementation, keeping this property allows for future features such as:
+   * - Loading chat history by ID
+   * - Switching between multiple conversations
+   * - Referencing the current chat session in API calls
+   *
+   * If you plan to add chat history, multi-session support, or session-specific features, retain this property.
+   * Otherwise, you may remove it and simplify the code.
+   */
   private chatId: string | null = null;
 
   private renderQueued = false;
@@ -230,7 +243,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
       .filter(Boolean);
 
     const first = parts[0]?.[0] ?? '';
-    const last = (parts.length > 1 ? parts[parts.length - 1] : '')?.[0] ?? '';
+    const last = (parts.length > 1 ? parts.at(-1) : '')?.[0] ?? '';
     const initials = (first + last).toUpperCase();
     return initials || 'U';
   }
@@ -299,7 +312,6 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
 
   goToChatFromMenu(): void {
     this.closeUserMenu();
-    //this.startNewConversation();
   }
 
   goToUserManagement(): void {
@@ -770,25 +782,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
     const cleaned = DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } });
     return this.sanitizer.bypassSecurityTrustHtml(cleaned);
   }
-
-  private ensureRenderedMessages(messages: ChatMessage[]): ChatMessage[] {
-    return messages.map((m) => {
-      if (m.role !== 'ai') {
-        return m;
-      }
-
-      const normalized: ChatMessage = {
-        ...m,
-        typing: false,
-        displayText: undefined,
-      };
-
-      normalized.html ??= this.markdownToSafeHtml(normalized.content);
-
-      return normalized;
-    });
-  }
-
+  
   ngAfterViewChecked(): void {
     if (this.shouldScroll) {
       this.scrollToBottom(false);
@@ -932,7 +926,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
     this.lastModelUsed = null;
 
     this.pipeline
-      .startPipeline(text, this.selectedFile, this.chatId)
+      .startPipeline(text, this.selectedFile)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (res) => {
