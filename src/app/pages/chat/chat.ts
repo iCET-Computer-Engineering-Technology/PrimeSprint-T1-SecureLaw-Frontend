@@ -103,8 +103,21 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   readonly theme = inject(Theme);
   private readonly token = inject(Token);
   private readonly auth = inject(Auth);
-
   private readonly chatSession = inject(ChatSessionService);
+
+  /**
+   * The unique identifier for the current chat session.
+   *
+   * This is set from the route parameter (e.g., /chat/:chatId) and updated when starting a new conversation.
+   *
+   * While not strictly required for the current implementation, keeping this property allows for future features such as:
+   * - Loading chat history by ID
+   * - Switching between multiple conversations
+   * - Referencing the current chat session in API calls
+   *
+   * If you plan to add chat history, multi-session support, or session-specific features, retain this property.
+   * Otherwise, you may remove it and simplify the code.
+   */
   private chatId: string | null = null;
 
   private renderQueued = false;
@@ -115,12 +128,11 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   private requestRender(immediate = false): void {
     this.cdr.markForCheck();
 
-
     const run = () => {
       this.renderQueued = false;
       try {
         this.cdr.detectChanges();
-      } catch { }
+      } catch {}
     };
 
     if (immediate) {
@@ -184,12 +196,10 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
         this.requestRender(true);
       });
 
-    this.route.paramMap
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((params) => {
-        const id = params.get('chatId');
-        this.chatId = id;
-      });
+    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      const id = params.get('chatId');
+      this.chatId = id;
+    });
   }
 
   private normalizeRole(role: unknown): NormalizedRole {
@@ -230,7 +240,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
       .filter(Boolean);
 
     const first = parts[0]?.[0] ?? '';
-    const last = (parts.length > 1 ? parts[parts.length - 1] : '')?.[0] ?? '';
+    const last = (parts.length > 1 ? parts.at(-1) : '')?.[0] ?? '';
     const initials = (first + last).toUpperCase();
     return initials || 'U';
   }
@@ -257,11 +267,11 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
           };
 
           const name =
-            (typeof me.name === 'string' && me.name.trim())
+            typeof me.name === 'string' && me.name.trim()
               ? me.name
-              : (typeof me.username === 'string' && me.username.trim())
+              : typeof me.username === 'string' && me.username.trim()
                 ? me.username
-                : (typeof me.email === 'string' && me.email.trim())
+                : typeof me.email === 'string' && me.email.trim()
                   ? me.email
                   : '';
 
@@ -299,7 +309,6 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
 
   goToChatFromMenu(): void {
     this.closeUserMenu();
-    //this.startNewConversation();
   }
 
   goToUserManagement(): void {
@@ -391,7 +400,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
       } catch {
         try {
           el.focus();
-        } catch { }
+        } catch {}
       }
     };
 
@@ -771,24 +780,6 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
     return this.sanitizer.bypassSecurityTrustHtml(cleaned);
   }
 
-  private ensureRenderedMessages(messages: ChatMessage[]): ChatMessage[] {
-    return messages.map((m) => {
-      if (m.role !== 'ai') {
-        return m;
-      }
-
-      const normalized: ChatMessage = {
-        ...m,
-        typing: false,
-        displayText: undefined,
-      };
-
-      normalized.html ??= this.markdownToSafeHtml(normalized.content);
-
-      return normalized;
-    });
-  }
-
   ngAfterViewChecked(): void {
     if (this.shouldScroll) {
       this.scrollToBottom(false);
@@ -893,6 +884,10 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
         this.chatId = session.chatId;
         this.router.navigate(['/chat', session.chatId]);
         this.requestRender();
+        const sidebarCheck = document.getElementById('sidebarCheck') as HTMLInputElement | null;
+        if (sidebarCheck?.checked) {
+          sidebarCheck.checked = false;
+        }
       },
       error: (err) => {
         console.error('Failed to create chat session:', err);
@@ -903,13 +898,9 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
           time: this.getTime(),
         });
         this.requestRender();
-      }
-    })
+      },
+    });
   }
-
-  // switchConversation(conv:  sationSummary): void {
-
-  // }
 
   sendMessage(): void {
     const text = this.userInput.trim();
@@ -932,7 +923,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
     this.lastModelUsed = null;
 
     this.pipeline
-      .startPipeline(text, this.selectedFile, this.chatId)
+      .startPipeline(text, this.selectedFile)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (res) => {
@@ -988,7 +979,7 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
     } catch {
       try {
         el.scrollTop = el.scrollHeight;
-      } catch { }
+      } catch {}
     }
 
     this.autoScroll = true;
