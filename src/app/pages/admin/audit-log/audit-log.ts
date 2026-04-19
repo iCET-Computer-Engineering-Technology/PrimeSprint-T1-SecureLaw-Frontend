@@ -58,7 +58,7 @@ export class AuditLogComponent implements OnInit {
       error: (err) => {
         console.error(err);
         this.loading = false;
-        this.cdr.markForCheck();   // also here
+        this.cdr.markForCheck(); 
       }
     });
     
@@ -87,7 +87,7 @@ export class AuditLogComponent implements OnInit {
 
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'audit_logs.csv'; // filename
+        a.download = 'audit_logs.csv'; 
 
         document.body.appendChild(a);
         a.click();
@@ -99,14 +99,14 @@ export class AuditLogComponent implements OnInit {
     });
   }
 
-  // MAIN FILTER FUNCTION
+  // Filter Function
   applyFilters() {
     console.log('Filter clicked'); 
     const { userId, fromDate, toDate } = this.filters;
 
     this.loading = true;
 
-    // CASE 1: userId + date range
+    // CASE 1: UserId + date range
     if (userId && fromDate && toDate) {
       console.log('In case 1'); 
       this.auditLogService.getByDateAndUser(userId, fromDate, toDate)
@@ -124,7 +124,7 @@ export class AuditLogComponent implements OnInit {
         console.log('End of case 1'); 
     }
 
-    // CASE 2: only userId
+    // CASE 2: Only userId
     else if (userId) {
       console.log('In case 2'); 
       this.auditLogService.getByUserId(userId)
@@ -142,7 +142,7 @@ export class AuditLogComponent implements OnInit {
         console.log('End of case 2'); 
     }
 
-    // CASE 3: only date range
+    // CASE 3: Only date range
     else if (fromDate && toDate) {
       console.log('In case 3'); 
       this.auditLogService.getByDate(fromDate, toDate)
@@ -160,7 +160,7 @@ export class AuditLogComponent implements OnInit {
       console.log('End of case 3'); 
     }
 
-    // CASE 4: no filters
+    // CASE 4: No filters
     else {
       console.log('In else'); 
       this.loadAuditLogs();
@@ -168,7 +168,7 @@ export class AuditLogComponent implements OnInit {
     }
   }
 
-  // RESET
+  // Reset Function
   resetFilters() {
     this.filters = {
       userId: '',

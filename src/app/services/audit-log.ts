@@ -15,7 +15,7 @@ export enum ActionType {
 }
 
 export interface PIIDailyCount {
-  day: string;       // e.g., "2026-04-01"
+  day: string;       
   totalBlocked: number;
 }
 
@@ -53,7 +53,7 @@ export class AuditLogService {
         headers: {
           Authorization: 'Bearer ' + localStorage.getItem('token')
         },
-        params // ✅ THIS is the key change
+        params 
       }
     );
   }
@@ -73,8 +73,8 @@ export class AuditLogService {
       `http://localhost:8080/audit/get-audit-by-date`,
       {
         params: {
-          from: fromDate,   // ✅ FIXED
-          to: toDate        // ✅ FIXED
+          from: fromDate,   
+          to: toDate        
         }
       }
     );
@@ -87,9 +87,9 @@ export class AuditLogService {
       'http://localhost:8080/audit/get-audit-by-date-and-userId',
       {
         params: {
-          id: userId,       // ✅ FIXED
-          from: fromDate,   // ✅ FIXED
-          to: toDate        // ✅ FIXED
+          id: userId,       
+          from: fromDate,   
+          to: toDate        
         }
       ,
         headers: {

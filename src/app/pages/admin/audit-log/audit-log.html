@@ -3,7 +3,7 @@
 
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
 
-    <!-- ══ PAGE HEADER ══ -->
+    <!-- Page Header -->
     <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5 mb-8 sm:mb-10">
       <div>
         <div class="flex items-center gap-1.5 mb-3">
@@ -48,13 +48,13 @@
       </div>
     </div>
 
-    <!-- == PII Chart == -->
+    <!-- Daily Masked PII Count Chart -->
     <div class="b-std border border-zinc-200 bg-white px-4 py-4 mb-6 transition-colors duration-200">
 
       <!-- Header -->
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-xs t-label text-zinc-400 tracking-widest uppercase font-medium">
-          PII Activity
+          A Graph Depicting Daily Masked PII Count
         </h3>
 
         <!-- Optional: small meta -->
@@ -106,7 +106,7 @@
         <div class="flex gap-2">
           <button (click)="applyFilters()"
             class="h-10 flex-1 border border-zinc-900 bg-zinc-900 text-white text-sm px-4 hover:bg-black transition-colors">
-            Apply
+            Apply Filters
           </button>
 
           <button (click)="resetFilters()"
@@ -118,40 +118,30 @@
       </div>
     </div>
 
-    <!-- ══ DESKTOP TABLE ══
-         Columns map 1-to-1 to audit_log table columns.
-         Wide table — horizontally scrollable on smaller screens.
-    ══ -->
+    <!-- Audit Logs Record Table -->
     <div class="b-std border border-zinc-200 md:block overflow-x-auto transition-colors duration-200">
       @if(!loading && auditLogs.length>0){
       <table class="w-full text-sm min-w-275">
         <thead>
           <tr class="bg-thead bg-zinc-50 border-b b-std border-zinc-200 transition-colors duration-200">
-            <!-- audit_log.timestamp (TIMESTAMP, idx_audit_timestamp) -->
             <th
               class="text-left px-4 py-3.5 text-xs tracking-widest uppercase t-label text-zinc-400 font-medium whitespace-nowrap">
               Timestamp</th>
-            <!-- audit_log.user_id (VARCHAR 50, idx_audit_user) -->
             <th
               class="text-left px-4 py-3.5 text-xs tracking-widest uppercase t-label text-zinc-400 font-medium whitespace-nowrap">
               User ID</th>
-            <!-- audit_log.action (VARCHAR 50, idx_audit_action) -->
             <th
               class="text-left px-4 py-3.5 text-xs tracking-widest uppercase t-label text-zinc-400 font-medium whitespace-nowrap">
               Action</th>
-            <!-- audit_log.target (VARCHAR 100) -->
             <th
               class="text-left px-4 py-3.5 text-xs tracking-widest uppercase t-label text-zinc-400 font-medium whitespace-nowrap">
               Target</th>
-            <!-- audit_log.model_used (VARCHAR 50) — null for non-AI actions -->
             <th
               class="text-left px-4 py-3.5 text-xs tracking-widest uppercase t-label text-zinc-400 font-medium whitespace-nowrap">
               Model</th>
-            <!-- audit_log.response_time (BIGINT, ms) — null for non-AI -->
             <th
               class="text-left px-4 py-3.5 text-xs tracking-widest uppercase t-label text-zinc-400 font-medium whitespace-nowrap">
               Response</th>
-            <!-- audit_log.mask_counts (JSONB) — null for non-AI -->
             <th
               class="text-left px-4 py-3.5 text-xs tracking-widest uppercase t-label text-zinc-400 font-medium whitespace-nowrap">
               Masks</th>
@@ -163,7 +153,7 @@
         </thead>
         <tbody>
 
-          <!-- ─── ROW  ─── -->
+          <!--Row-->
 
           @for (log of paginatedLogs; track $index){
 
@@ -195,18 +185,12 @@
                 }}</span>
             </td>
             <td class="px-4 py-4">
-              <!-- mask_counts JSONB rendered as pills: key→count -->
               <div class="flex items-center gap-1 flex-wrap">
                 @for (key of getMaskKeys(log.maskCounts); track key) {
                 <span
                   class="mask-pill bg-zinc-100 text-zinc-600 border border-zinc-200 transition-colors duration-200">{{
                   key }}·{{ log.maskCounts[key] }}</span>
                 }
-
-                <!-- <span
-                        class="mask-pill bg-zinc-100 text-zinc-600 border border-zinc-200 transition-colors duration-200">DATE·2</span>
-                      <span
-                        class="mask-pill bg-zinc-100 text-zinc-600 border border-zinc-200 transition-colors duration-200">CASE·1</span> -->
               </div>
             </td>
             <td class="px-4 py-4 text-right">
@@ -231,7 +215,7 @@
     </p>
     }
 
-    <!-- New Mobile cards -->
+    <!-- New cards -->
     <div class="md:hidden b-std border border-zinc-200 divide-y">
 
       @for (log of paginatedLogs; track log.id) {
@@ -254,7 +238,6 @@
           <div class="flex items-center justify-between">
             <p class="text-xs text-zinc-500">{{ log.target }}</p>
 
-            <!-- ✅ THIS is the fix -->
             <button
               (click)="openLog(log)"
               class="text-xs border px-3 py-1.5">
@@ -263,12 +246,10 @@
           </div>
 
         </div>
-
       }
-
     </div>
 
-    <!-- ══ PAGINATION ══ -->
+    <!-- Pagination -->
     <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mt-5">
       <p class="text-xs t-label text-zinc-400 order-2 sm:order-1 transition-colors duration-200">Showing {{
         paginatedLogs.length }} of {{ auditLogs.length }} events</p>
@@ -290,15 +271,9 @@
       </div>
     </div>
 
-  </div><!-- /max-w -->
+  </div>
 
-
-  <!-- ══════════════════════════════════════════════════════
-       DETAIL MODAL
-       All fields map 1-to-1 to audit_log table columns.
-       Populated dynamically by openLogModal() via data-* attrs.
-       Angular: replace JS bridge with component @Input binding.
-  ══════════════════════════════════════════════════════ -->
+  <!-- Detail Model -->
   @if(selectedLog){
     <div class="fixed inset-0 z-50 modal-backdrop bg-black/30 flex items-end sm:items-center justify-center sm:px-4">
   
@@ -326,20 +301,17 @@
         <!-- Body — scrollable -->
         <div class="px-6 sm:px-7 py-6 space-y-4 overflow-y-auto">
 
-          <!-- ── Core identity fields ── -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
-            <!-- audit_log.id (VARCHAR 250, PK) -->
             <div
               class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 sm:col-span-2 transition-colors duration-200">
               <p
                 class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
-                id <span class="normal-case font-normal">(VARCHAR 250 · PRIMARY KEY)</span></p>
+                id</p>
               <p id="m-id" class="field-mono text-xs font-mono text-zinc-600 break-all transition-colors duration-200">{{ selectedLog.userId }}
               </p>
             </div>
 
-            <!-- audit_log.timestamp (TIMESTAMP, idx_audit_timestamp) -->
             <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
               <p
                 class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
@@ -347,39 +319,27 @@
               <p id="m-timestamp" class="field-val text-sm font-mono text-zinc-800 transition-colors duration-200">{{ selectedLog.timestamp | date:'yyyy-MM-dd HH:mm' }}</p>
             </div>
 
-            <!-- audit_log.user_id (VARCHAR 50, idx_audit_user) -->
             <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
               <p
                 class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
-                user_id <span class="normal-case font-normal">(idx_audit_user)</span></p>
+                user_id</p>
               <p id="m-user-id" class="field-val text-sm font-medium text-zinc-800 transition-colors duration-200">{{ selectedLog.userId }}</p>
             </div>
 
-            <!-- audit_log.action (VARCHAR 50, idx_audit_action) -->
             <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
               <p
                 class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
-                action <span class="normal-case font-normal">(idx_audit_action)</span></p>
+                action</p>
               <span id="m-action-badge"
                 class="inline-block text-xs px-2.5 py-1 font-mono border transition-colors duration-200">{{ selectedLog.action }}</span>
             </div>
 
-            <!-- audit_log.target (VARCHAR 100) -->
             <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
               <p
                 class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
-                target <span class="normal-case font-normal">(VARCHAR 100)</span></p>
+                target</p>
               <p id="m-target"
-                class="field-mono text-xs font-mono text-zinc-600 break-all transition-colors duration-200">{{ selectedLog.target }}</p>
-            </div>
-
-            <!-- audit_log.template_id (VARCHAR 100) — nullable -->
-            <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
-              <p
-                class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
-                template_id <span class="normal-case font-normal">(nullable)</span></p>
-              <p id="m-template-id" class="field-mono text-xs font-mono text-zinc-500 transition-colors duration-200">null
-              </p>
+                class="field-mono text-xs font-mono text-zinc-600 break-all transition-colors duration-200">{{ selectedLog.target || '    -' }}</p>
             </div>
 
           </div>
@@ -389,34 +349,43 @@
             <p
               class="text-xs t-label text-zinc-400 tracking-widest uppercase font-medium mb-2 transition-colors duration-200">
               AI Fields — null for non-AI actions</p>
+
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
-              <!-- audit_log.model_used (VARCHAR 50) -->
+              <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
+              <p
+                class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
+                template_id</p>
+              <p id="m-template-id" class="field-mono text-xs font-mono text-zinc-500 transition-colors duration-200">{{ selectedLog.templateId || '    -' }}
+              </p>
+            </div>
+
+              <!-- audit_log.model_used -->
               <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
                 <p
                   class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
                   model_used</p>
                 <p id="m-model-used" class="field-mono text-xs font-mono text-zinc-500 transition-colors duration-200">
-                  {{ selectedLog.modelUsed || 'null' }}</p>
+                  {{ selectedLog.modelUsed || '    -' }}</p>
               </div>
 
-              <!-- audit_log.response_time (BIGINT, ms) -->
+              <!-- audit_log.response_time -->
               <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
                 <p
                   class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
-                  response_time <span class="normal-case font-normal">(BIGINT, ms)</span></p>
+                  response_time</p>
                 <p id="m-response-time" class="field-mono text-xs font-mono text-zinc-500 transition-colors duration-200">
-                  {{ selectedLog.responseTime || 'null' }}</p>
+                  {{ selectedLog.responseTime || '    -' }}</p>
               </div>
 
             </div>
           </div>
 
-          <!-- audit_log.mask_counts (JSONB) — rendered as formatted JSON + pills -->
+          <!-- audit_log.mask_counts (JSONB) -->
           <div>
             <p
               class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-2 transition-colors duration-200">
-              mask_counts <span class="normal-case font-normal">(JSONB — PII category counts)</span></p>
+              PII masked_counts</p>
             <div id="m-mask-pills" class="flex flex-wrap gap-1.5 mb-2"></div>
             <div
               class="json-box bg-zinc-50 border border-zinc-200 text-zinc-600 px-4 py-3 text-xs transition-colors duration-200"
@@ -424,16 +393,16 @@
               @if(selectedLog.maskCounts){
                 {{ selectedLog.maskCounts | json }}
               } @else {
-                <span class="text-xs text-zinc-400">null</span>
+                <span class="text-xs text-zinc-400"> - </span>
               }
             </div>
           </div>
 
-          <!-- audit_log.details (TEXT) -->
+          <!-- audit_log.details -->
           <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
             <p
               class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-2 transition-colors duration-200">
-              details <span class="normal-case font-normal">(TEXT)</span></p>
+              details </p>
             <p id="m-details" class="field-val text-sm text-zinc-700 leading-relaxed transition-colors duration-200">{{ selectedLog.details }}</p>
           </div>
 
