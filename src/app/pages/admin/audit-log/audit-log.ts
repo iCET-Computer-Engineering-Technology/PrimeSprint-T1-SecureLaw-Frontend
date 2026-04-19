@@ -99,10 +99,32 @@ export class AuditLogComponent implements OnInit {
     });
   }
 
+  isValidDate(date: string): boolean {
+    return !!date && !isNaN(new Date(date).getTime());
+  }
+
+  isSingleDateSearch(): boolean {
+    return (!!this.filters.fromDate && !this.filters.toDate) ||
+          (!this.filters.fromDate && !!this.filters.toDate);
+  }
+
   // Filter Function
   applyFilters() {
     console.log('Filter clicked'); 
     const { userId, fromDate, toDate } = this.filters;
+
+    if ((fromDate && !this.isValidDate(fromDate)) ||
+      (toDate && !this.isValidDate(toDate))) {
+      this.error = 'Invalid date format';
+      return;
+    }
+
+    if (fromDate && toDate && new Date(fromDate) > new Date(toDate)) {
+      this.error = 'From date cannot be after To date';
+      return;
+    }
+
+    this.error = '';
 
     this.loading = true;
 
@@ -142,7 +164,21 @@ export class AuditLogComponent implements OnInit {
         console.log('End of case 2'); 
     }
 
-    // CASE 3: Only date range
+    // Case 3A: Only ONE date entered
+    else if (this.isSingleDateSearch()) {
+      const date = fromDate || toDate;
+
+      this.auditLogService.getByDate(date, date)
+        .subscribe({
+          next: (res) => this.applyData(res),
+          error: (err) => {
+            console.error(err);
+            this.loading = false;
+          }
+        });
+    }
+
+    // CASE 3B: Only date range
     else if (fromDate && toDate) {
       console.log('In case 3'); 
       this.auditLogService.getByDate(fromDate, toDate)
