@@ -6,6 +6,7 @@ import { roleGuard } from './guards/role-guard';
 import { Chat } from './pages/chat/chat';
 import { AuditLog } from './pages/admin/audit-log/audit-log';
 import { Forgotpassword } from './auth/login/forgotpassword/forgotpassword';
+import { Resetpassword } from './auth/login/forgotpassword/resetpassword/resetpassword';
 
 export const routes: Routes = [
   {
@@ -22,6 +23,10 @@ export const routes: Routes = [
   {
       path:'forgotpassword',
       component:Forgotpassword,
+  },
+  {
+      path:'resetpassword',
+      component:Resetpassword
   },
   {
     path: 'admin',
