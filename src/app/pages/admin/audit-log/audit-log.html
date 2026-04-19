@@ -3,7 +3,7 @@
 
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
 
-    <!-- ══ PAGE HEADER ══ -->
+    <!-- Page Header -->
     <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5 mb-8 sm:mb-10">
       <div>
         <div class="flex items-center gap-1.5 mb-3">
@@ -37,7 +37,7 @@
           <span class="sec-badge-t text-xs font-medium text-zinc-700 transition-colors duration-200">Audit logs are
             immutable and cannot be modified</span>
         </div>
-        <button
+        <button (click)="downloadCSV()"
           class="btn-outline flex items-center justify-center gap-2 border border-zinc-200 text-zinc-600 text-sm px-5 py-2.5 hover:border-zinc-900 hover:text-zinc-900 w-full sm:w-auto transition-colors duration-200">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round"
@@ -48,39 +48,100 @@
       </div>
     </div>
 
-    <!-- ══ DESKTOP TABLE ══
-         Columns map 1-to-1 to audit_log table columns.
-         Wide table — horizontally scrollable on smaller screens.
-    ══ -->
+    <!-- Daily Masked PII Count Chart -->
+    <div class="b-std border border-zinc-200 bg-white px-4 py-4 mb-6 transition-colors duration-200">
+
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-xs t-label text-zinc-400 tracking-widest uppercase font-medium">
+          A Graph Depicting Daily Masked PII Count
+        </h3>
+
+        <!-- Optional: small meta -->
+        <span class="text-xs text-zinc-400">
+          Daily Count
+        </span>
+      </div>
+
+      <!-- Chart -->
+      <div class="relative h-[280px]">
+        <canvas baseChart [data]="piiChartData" [options]="piiChartOptions" [type]="'line'">
+        </canvas>
+      </div>
+
+    </div>
+
+    <!-- ══ FILTER BAR ══ -->
+    <div class="b-std border border-zinc-200 bg-white px-4 py-4 mb-6 transition-colors duration-200">
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+
+        <!-- User -->
+        <div class="flex flex-col">
+          <label class="text-xs t-label text-zinc-400 tracking-widest uppercase font-medium mb-1">
+            User ID
+          </label>
+          <input type="text" [(ngModel)]="filters.userId" (keyup.enter)="applyFilters()"
+            class="h-10 border border-zinc-200 px-3 text-sm rounded-md focus:outline-none focus:border-zinc-900 transition-colors" />
+        </div>
+
+        <!-- From -->
+        <div class="flex flex-col">
+          <label class="text-xs t-label text-zinc-400 tracking-widest uppercase font-medium mb-1">
+            From Date
+          </label>
+          <input type="date" [(ngModel)]="filters.fromDate"
+            class="h-10 border border-zinc-200 px-3 text-sm rounded-md focus:outline-none focus:border-zinc-900 transition-colors" />
+        </div>
+
+        <!-- To -->
+        <div class="flex flex-col">
+          <label class="text-xs t-label text-zinc-400 tracking-widest uppercase font-medium mb-1">
+            To Date
+          </label>
+          <input type="date" [(ngModel)]="filters.toDate"
+            class="h-10 border border-zinc-200 px-3 text-sm rounded-md focus:outline-none focus:border-zinc-900 transition-colors" />
+        </div>
+
+        <!-- Buttons -->
+        <div class="flex gap-2">
+          <button (click)="applyFilters()"
+            class="h-10 flex-1 border border-zinc-900 bg-zinc-900 text-white text-sm px-4 hover:bg-black transition-colors">
+            Apply Filters
+          </button>
+
+          <button (click)="resetFilters()"
+            class="h-10 flex-1 border border-zinc-200 text-zinc-600 text-sm px-4 hover:border-zinc-900 hover:text-zinc-900 transition-colors">
+            Reset
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Audit Logs Record Table -->
     <div class="b-std border border-zinc-200 md:block overflow-x-auto transition-colors duration-200">
+      @if(!loading && auditLogs.length>0){
       <table class="w-full text-sm min-w-275">
         <thead>
           <tr class="bg-thead bg-zinc-50 border-b b-std border-zinc-200 transition-colors duration-200">
-            <!-- audit_log.timestamp (TIMESTAMP, idx_audit_timestamp) -->
             <th
               class="text-left px-4 py-3.5 text-xs tracking-widest uppercase t-label text-zinc-400 font-medium whitespace-nowrap">
               Timestamp</th>
-            <!-- audit_log.user_id (VARCHAR 50, idx_audit_user) -->
             <th
               class="text-left px-4 py-3.5 text-xs tracking-widest uppercase t-label text-zinc-400 font-medium whitespace-nowrap">
               User ID</th>
-            <!-- audit_log.action (VARCHAR 50, idx_audit_action) -->
             <th
               class="text-left px-4 py-3.5 text-xs tracking-widest uppercase t-label text-zinc-400 font-medium whitespace-nowrap">
               Action</th>
-            <!-- audit_log.target (VARCHAR 100) -->
             <th
               class="text-left px-4 py-3.5 text-xs tracking-widest uppercase t-label text-zinc-400 font-medium whitespace-nowrap">
               Target</th>
-            <!-- audit_log.model_used (VARCHAR 50) — null for non-AI actions -->
             <th
               class="text-left px-4 py-3.5 text-xs tracking-widest uppercase t-label text-zinc-400 font-medium whitespace-nowrap">
               Model</th>
-            <!-- audit_log.response_time (BIGINT, ms) — null for non-AI -->
             <th
               class="text-left px-4 py-3.5 text-xs tracking-widest uppercase t-label text-zinc-400 font-medium whitespace-nowrap">
               Response</th>
-            <!-- audit_log.mask_counts (JSONB) — null for non-AI -->
             <th
               class="text-left px-4 py-3.5 text-xs tracking-widest uppercase t-label text-zinc-400 font-medium whitespace-nowrap">
               Masks</th>
@@ -92,7 +153,10 @@
         </thead>
         <tbody>
 
-          <!-- ─── ROW 1: AI_QUERY ─── -->
+          <!--Row-->
+
+          @for (log of paginatedLogs; track $index){
+
           <tr
             class="bg-row bg-white border-b b-light border-zinc-100 hover:bg-zinc-50 transition-colors duration-150 cursor-default"
             data-log-id="log_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6" data-user-id="eleanor.voss"
@@ -102,614 +166,258 @@
             data-details="User submitted a contract clause review query. 6 PII items anonymised before dispatch to model.">
             <td
               class="px-4 py-4 t-mono text-zinc-400 font-mono text-xs whitespace-nowrap transition-colors duration-200">
-              2026-03-17&nbsp;10:02</td>
+              {{ log.timestamp | date:'yyyy-MM-dd HH:mm' }}</td>
             <td
               class="px-4 py-4 font-medium t-head text-zinc-800 text-sm whitespace-nowrap transition-colors duration-200">
-              eleanor.voss</td>
+              {{ log.userId }}</td>
             <td class="px-4 py-4">
               <span
-                class="act-ai action-badge inline-block bg-blue-50 text-blue-700 text-xs px-2.5 py-1 font-mono whitespace-nowrap border border-blue-200 transition-colors duration-200">AI_QUERY</span>
+                class="act-ai action-badge inline-block bg-blue-50 text-blue-700 text-xs px-2.5 py-1 font-mono whitespace-nowrap border border-blue-200 transition-colors duration-200">{{
+                log.action }}</span>
             </td>
-            <td class="px-4 py-4 t-sub text-zinc-500 text-xs transition-colors duration-200">contract-review-session-001
+            <td class="px-4 py-4 t-sub text-zinc-500 text-xs transition-colors duration-200">{{ log.target }}
             </td>
             <td
               class="px-4 py-4 t-mono text-zinc-500 font-mono text-xs whitespace-nowrap transition-colors duration-200">
-              claude-sonnet-4-6</td>
+              {{ log.modelUsed || '—' }}</td>
             <td class="px-4 py-4 whitespace-nowrap">
-              <span class="text-xs font-medium text-emerald-700">1 243 ms</span>
-            </td>
-            <td class="px-4 py-4">
-              <!-- mask_counts JSONB rendered as pills: key→count -->
-              <div class="flex items-center gap-1 flex-wrap">
-                <span
-                  class="mask-pill bg-zinc-100 text-zinc-600 border border-zinc-200 transition-colors duration-200">NAME·3</span>
-                <span
-                  class="mask-pill bg-zinc-100 text-zinc-600 border border-zinc-200 transition-colors duration-200">DATE·2</span>
-                <span
-                  class="mask-pill bg-zinc-100 text-zinc-600 border border-zinc-200 transition-colors duration-200">CASE·1</span>
-              </div>
-            </td>
-            <td class="px-4 py-4 text-right">
-              <button onclick="openLogModal(this.closest('tr'))"
-                class="btn-view text-xs border border-zinc-300 text-zinc-500 px-3 py-1.5 hover:border-zinc-900 hover:text-zinc-900 whitespace-nowrap transition-colors duration-150">View
-                →</button>
-            </td>
-          </tr>
-
-          <!-- ─── ROW 2: AI_QUERY ─── -->
-          <tr
-            class="bg-row bg-white border-b b-light border-zinc-100 hover:bg-zinc-50 transition-colors duration-150 cursor-default"
-            data-log-id="log_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7" data-user-id="james.porter"
-            data-timestamp="2026-03-17 09:48:55" data-action="AI_QUERY" data-target="litigation-risk-session-014"
-            data-template-id="tmpl_risk_analysis_v2" data-model-used="claude-opus-4-6" data-response-time="3871"
-            data-mask-counts='{"NAME":7,"ORG":4,"AMOUNT":2,"DATE":5}'
-            data-details="Complex litigation risk analysis. 18 PII items anonymised across 4 categories.">
-            <td
-              class="px-4 py-4 t-mono text-zinc-400 font-mono text-xs whitespace-nowrap transition-colors duration-200">
-              2026-03-17&nbsp;09:48</td>
-            <td
-              class="px-4 py-4 font-medium t-head text-zinc-800 text-sm whitespace-nowrap transition-colors duration-200">
-              james.porter</td>
-            <td class="px-4 py-4">
-              <span
-                class="act-ai action-badge inline-block bg-blue-50 text-blue-700 text-xs px-2.5 py-1 font-mono whitespace-nowrap border border-blue-200 transition-colors duration-200">AI_QUERY</span>
-            </td>
-            <td class="px-4 py-4 t-sub text-zinc-500 text-xs transition-colors duration-200">litigation-risk-session-014
-            </td>
-            <td
-              class="px-4 py-4 t-mono text-zinc-500 font-mono text-xs whitespace-nowrap transition-colors duration-200">
-              claude-opus-4-6</td>
-            <td class="px-4 py-4 whitespace-nowrap">
-              <span class="text-xs font-medium text-amber-600">3 871 ms</span>
+              <span class="text-xs font-medium text-emerald-700">{{ log.responseTime ? (log.responseTime + ' ms') : '—'
+                }}</span>
             </td>
             <td class="px-4 py-4">
               <div class="flex items-center gap-1 flex-wrap">
+                @for (key of getMaskKeys(log.maskCounts); track key) {
                 <span
-                  class="mask-pill bg-zinc-100 text-zinc-600 border border-zinc-200 transition-colors duration-200">NAME·7</span>
-                <span
-                  class="mask-pill bg-zinc-100 text-zinc-600 border border-zinc-200 transition-colors duration-200">ORG·4</span>
-                <span
-                  class="mask-pill bg-zinc-100 text-zinc-600 border border-zinc-200 transition-colors duration-200">AMT·2</span>
-                <span
-                  class="mask-pill bg-zinc-100 text-zinc-600 border border-zinc-200 transition-colors duration-200">DATE·5</span>
+                  class="mask-pill bg-zinc-100 text-zinc-600 border border-zinc-200 transition-colors duration-200">{{
+                  key }}·{{ log.maskCounts[key] }}</span>
+                }
               </div>
             </td>
             <td class="px-4 py-4 text-right">
-              <button onclick="openLogModal(this.closest('tr'))"
+              <button (click)="openLog(log)"
                 class="btn-view text-xs border border-zinc-300 text-zinc-500 px-3 py-1.5 hover:border-zinc-900 hover:text-zinc-900 whitespace-nowrap transition-colors duration-150">View
                 →</button>
             </td>
           </tr>
-
-          <!-- ─── ROW 3: DOCUMENT_UPLOAD ─── -->
-          <tr
-            class="bg-row bg-white border-b b-light border-zinc-100 hover:bg-zinc-50 transition-colors duration-150 cursor-default"
-            data-log-id="log_c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8" data-user-id="sophia.wright"
-            data-timestamp="2026-03-17 09:31:02" data-action="DOCUMENT_UPLOAD" data-target="doc_merger_agreement_v4.pdf"
-            data-template-id="" data-model-used="" data-response-time="" data-mask-counts=""
-            data-details="Document uploaded to secure store. File size: 2.4 MB. Awaiting review assignment.">
-            <td
-              class="px-4 py-4 t-mono text-zinc-400 font-mono text-xs whitespace-nowrap transition-colors duration-200">
-              2026-03-17&nbsp;09:31</td>
-            <td
-              class="px-4 py-4 font-medium t-head text-zinc-800 text-sm whitespace-nowrap transition-colors duration-200">
-              sophia.wright</td>
-            <td class="px-4 py-4">
-              <span
-                class="act-doc action-badge inline-block bg-emerald-50 text-emerald-700 text-xs px-2.5 py-1 font-mono whitespace-nowrap border border-emerald-200 transition-colors duration-200">DOCUMENT_UPLOAD</span>
-            </td>
-            <td class="px-4 py-4 t-sub text-zinc-500 text-xs transition-colors duration-200">doc_merger_agreement_v4.pdf
-            </td>
-            <td class="px-4 py-4 t-muted text-zinc-400 text-xs transition-colors duration-200">—</td>
-            <td class="px-4 py-4 t-muted text-zinc-400 text-xs transition-colors duration-200">—</td>
-            <td class="px-4 py-4 t-muted text-zinc-400 text-xs transition-colors duration-200">—</td>
-            <td class="px-4 py-4 text-right">
-              <button onclick="openLogModal(this.closest('tr'))"
-                class="btn-view text-xs border border-zinc-300 text-zinc-500 px-3 py-1.5 hover:border-zinc-900 hover:text-zinc-900 whitespace-nowrap transition-colors duration-150">View
-                →</button>
-            </td>
-          </tr>
-
-          <!-- ─── ROW 4: LOGIN_SUCCESS ─── -->
-          <tr
-            class="bg-row bg-white border-b b-light border-zinc-100 hover:bg-zinc-50 transition-colors duration-150 cursor-default"
-            data-log-id="log_d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9" data-user-id="harrison.blake"
-            data-timestamp="2026-03-17 08:59:41" data-action="LOGIN_SUCCESS" data-target="auth-session"
-            data-template-id="" data-model-used="" data-response-time="" data-mask-counts=""
-            data-details="Successful authentication via username/password. Session token issued.">
-            <td
-              class="px-4 py-4 t-mono text-zinc-400 font-mono text-xs whitespace-nowrap transition-colors duration-200">
-              2026-03-17&nbsp;08:59</td>
-            <td
-              class="px-4 py-4 font-medium t-head text-zinc-800 text-sm whitespace-nowrap transition-colors duration-200">
-              harrison.blake</td>
-            <td class="px-4 py-4">
-              <span
-                class="act-login action-badge inline-block bg-zinc-100 text-zinc-600 text-xs px-2.5 py-1 font-mono whitespace-nowrap border border-zinc-200 transition-colors duration-200">LOGIN_SUCCESS</span>
-            </td>
-            <td class="px-4 py-4 t-sub text-zinc-500 text-xs transition-colors duration-200">auth-session</td>
-            <td class="px-4 py-4 t-muted text-zinc-400 text-xs transition-colors duration-200">—</td>
-            <td class="px-4 py-4 t-muted text-zinc-400 text-xs transition-colors duration-200">—</td>
-            <td class="px-4 py-4 t-muted text-zinc-400 text-xs transition-colors duration-200">—</td>
-            <td class="px-4 py-4 text-right">
-              <button onclick="openLogModal(this.closest('tr'))"
-                class="btn-view text-xs border border-zinc-300 text-zinc-500 px-3 py-1.5 hover:border-zinc-900 hover:text-zinc-900 whitespace-nowrap transition-colors duration-150">View
-                →</button>
-            </td>
-          </tr>
-
-          <!-- ─── ROW 5: USER_CREATED ─── -->
-          <tr
-            class="bg-row bg-white border-b b-light border-zinc-100 hover:bg-zinc-50 transition-colors duration-150 cursor-default"
-            data-log-id="log_e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0" data-user-id="harrison.blake"
-            data-timestamp="2026-03-16 14:22:07" data-action="USER_CREATED" data-target="user::daniel.ford"
-            data-template-id="" data-model-used="" data-response-time="" data-mask-counts=""
-            data-details="New user account created with role JUNIOR. Supervisor assigned: sophia.wright.">
-            <td
-              class="px-4 py-4 t-mono text-zinc-400 font-mono text-xs whitespace-nowrap transition-colors duration-200">
-              2026-03-16&nbsp;14:22</td>
-            <td
-              class="px-4 py-4 font-medium t-head text-zinc-800 text-sm whitespace-nowrap transition-colors duration-200">
-              harrison.blake</td>
-            <td class="px-4 py-4">
-              <span
-                class="act-user action-badge inline-block bg-amber-50 text-amber-700 text-xs px-2.5 py-1 font-mono whitespace-nowrap border border-amber-200 transition-colors duration-200">USER_CREATED</span>
-            </td>
-            <td class="px-4 py-4 t-sub text-zinc-500 text-xs transition-colors duration-200">user::daniel.ford</td>
-            <td class="px-4 py-4 t-muted text-zinc-400 text-xs transition-colors duration-200">—</td>
-            <td class="px-4 py-4 t-muted text-zinc-400 text-xs transition-colors duration-200">—</td>
-            <td class="px-4 py-4 t-muted text-zinc-400 text-xs transition-colors duration-200">—</td>
-            <td class="px-4 py-4 text-right">
-              <button onclick="openLogModal(this.closest('tr'))"
-                class="btn-view text-xs border border-zinc-300 text-zinc-500 px-3 py-1.5 hover:border-zinc-900 hover:text-zinc-900 whitespace-nowrap transition-colors duration-150">View
-                →</button>
-            </td>
-          </tr>
-
-          <!-- ─── ROW 6: AI_QUERY ─── -->
-          <tr
-            class="bg-row bg-white border-b b-light border-zinc-100 hover:bg-zinc-50 transition-colors duration-150 cursor-default"
-            data-log-id="log_f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1" data-user-id="marcus.chen"
-            data-timestamp="2026-03-16 11:15:33" data-action="AI_QUERY" data-target="compliance-check-session-007"
-            data-template-id="tmpl_compliance_v1" data-model-used="claude-haiku-4-5" data-response-time="612"
-            data-mask-counts='{"NAME":1,"ID_NO":2}'
-            data-details="Quick compliance check query. 3 PII items masked before model dispatch.">
-            <td
-              class="px-4 py-4 t-mono text-zinc-400 font-mono text-xs whitespace-nowrap transition-colors duration-200">
-              2026-03-16&nbsp;11:15</td>
-            <td
-              class="px-4 py-4 font-medium t-head text-zinc-800 text-sm whitespace-nowrap transition-colors duration-200">
-              marcus.chen</td>
-            <td class="px-4 py-4">
-              <span
-                class="act-ai action-badge inline-block bg-blue-50 text-blue-700 text-xs px-2.5 py-1 font-mono whitespace-nowrap border border-blue-200 transition-colors duration-200">AI_QUERY</span>
-            </td>
-            <td class="px-4 py-4 t-sub text-zinc-500 text-xs transition-colors duration-200">
-              compliance-check-session-007</td>
-            <td
-              class="px-4 py-4 t-mono text-zinc-500 font-mono text-xs whitespace-nowrap transition-colors duration-200">
-              claude-haiku-4-5</td>
-            <td class="px-4 py-4 whitespace-nowrap">
-              <span class="text-xs font-medium text-emerald-700">612 ms</span>
-            </td>
-            <td class="px-4 py-4">
-              <div class="flex items-center gap-1 flex-wrap">
-                <span
-                  class="mask-pill bg-zinc-100 text-zinc-600 border border-zinc-200 transition-colors duration-200">NAME·1</span>
-                <span
-                  class="mask-pill bg-zinc-100 text-zinc-600 border border-zinc-200 transition-colors duration-200">ID·2</span>
-              </div>
-            </td>
-            <td class="px-4 py-4 text-right">
-              <button onclick="openLogModal(this.closest('tr'))"
-                class="btn-view text-xs border border-zinc-300 text-zinc-500 px-3 py-1.5 hover:border-zinc-900 hover:text-zinc-900 whitespace-nowrap transition-colors duration-150">View
-                →</button>
-            </td>
-          </tr>
-
-          <!-- ─── ROW 7: USER_UPDATED ─── -->
-          <tr
-            class="bg-row bg-white border-b b-light border-zinc-100 hover:bg-zinc-50 transition-colors duration-150 cursor-default"
-            data-log-id="log_a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2" data-user-id="harrison.blake"
-            data-timestamp="2026-03-15 16:44:19" data-action="USER_UPDATED" data-target="user::marcus.chen"
-            data-template-id="" data-model-used="" data-response-time="" data-mask-counts=""
-            data-details="Role changed from SENIOR to JUNIOR. Status remains DISABLED. Audit entry auto-generated.">
-            <td
-              class="px-4 py-4 t-mono text-zinc-400 font-mono text-xs whitespace-nowrap transition-colors duration-200">
-              2026-03-15&nbsp;16:44</td>
-            <td
-              class="px-4 py-4 font-medium t-head text-zinc-800 text-sm whitespace-nowrap transition-colors duration-200">
-              harrison.blake</td>
-            <td class="px-4 py-4">
-              <span
-                class="act-user action-badge inline-block bg-amber-50 text-amber-700 text-xs px-2.5 py-1 font-mono whitespace-nowrap border border-amber-200 transition-colors duration-200">USER_UPDATED</span>
-            </td>
-            <td class="px-4 py-4 t-sub text-zinc-500 text-xs transition-colors duration-200">user::marcus.chen</td>
-            <td class="px-4 py-4 t-muted text-zinc-400 text-xs transition-colors duration-200">—</td>
-            <td class="px-4 py-4 t-muted text-zinc-400 text-xs transition-colors duration-200">—</td>
-            <td class="px-4 py-4 t-muted text-zinc-400 text-xs transition-colors duration-200">—</td>
-            <td class="px-4 py-4 text-right">
-              <button onclick="openLogModal(this.closest('tr'))"
-                class="btn-view text-xs border border-zinc-300 text-zinc-500 px-3 py-1.5 hover:border-zinc-900 hover:text-zinc-900 whitespace-nowrap transition-colors duration-150">View
-                →</button>
-            </td>
-          </tr>
-
-          <!-- ─── ROW 8: USER_DEACTIVATED ─── -->
-          <tr
-            class="bg-row bg-white border-b b-light border-zinc-100 hover:bg-zinc-50 transition-colors duration-150 cursor-default"
-            data-log-id="log_b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3" data-user-id="harrison.blake"
-            data-timestamp="2026-03-15 14:05:58" data-action="USER_DEACTIVATED" data-target="user::natalie.ross"
-            data-template-id="" data-model-used="" data-response-time="" data-mask-counts=""
-            data-details="Account deactivated. Status set to DISABLED. Data and history preserved per retention policy.">
-            <td
-              class="px-4 py-4 t-mono text-zinc-400 font-mono text-xs whitespace-nowrap transition-colors duration-200">
-              2026-03-15&nbsp;14:05</td>
-            <td
-              class="px-4 py-4 font-medium t-head text-zinc-800 text-sm whitespace-nowrap transition-colors duration-200">
-              harrison.blake</td>
-            <td class="px-4 py-4">
-              <span
-                class="act-user action-badge inline-block bg-amber-50 text-amber-700 text-xs px-2.5 py-1 font-mono whitespace-nowrap border border-amber-200 transition-colors duration-200">USER_DEACTIVATED</span>
-            </td>
-            <td class="px-4 py-4 t-sub text-zinc-500 text-xs transition-colors duration-200">user::natalie.ross</td>
-            <td class="px-4 py-4 t-muted text-zinc-400 text-xs transition-colors duration-200">—</td>
-            <td class="px-4 py-4 t-muted text-zinc-400 text-xs transition-colors duration-200">—</td>
-            <td class="px-4 py-4 t-muted text-zinc-400 text-xs transition-colors duration-200">—</td>
-            <td class="px-4 py-4 text-right">
-              <button onclick="openLogModal(this.closest('tr'))"
-                class="btn-view text-xs border border-zinc-300 text-zinc-500 px-3 py-1.5 hover:border-zinc-900 hover:text-zinc-900 whitespace-nowrap transition-colors duration-150">View
-                →</button>
-            </td>
-          </tr>
-
-          <!-- ─── ROW 9: DOCUMENT_UPLOAD ─── -->
-          <tr
-            class="bg-row bg-white border-b b-light border-zinc-100 hover:bg-zinc-50 transition-colors duration-150 cursor-default"
-            data-log-id="log_c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4" data-user-id="eleanor.voss"
-            data-timestamp="2026-03-14 10:19:28" data-action="DOCUMENT_UPLOAD"
-            data-target="doc_lease_amendment_final.docx" data-template-id="" data-model-used="" data-response-time=""
-            data-mask-counts="" data-details="Document uploaded to secure store. File size: 0.9 MB.">
-            <td
-              class="px-4 py-4 t-mono text-zinc-400 font-mono text-xs whitespace-nowrap transition-colors duration-200">
-              2026-03-14&nbsp;10:19</td>
-            <td
-              class="px-4 py-4 font-medium t-head text-zinc-800 text-sm whitespace-nowrap transition-colors duration-200">
-              eleanor.voss</td>
-            <td class="px-4 py-4">
-              <span
-                class="act-doc action-badge inline-block bg-emerald-50 text-emerald-700 text-xs px-2.5 py-1 font-mono whitespace-nowrap border border-emerald-200 transition-colors duration-200">DOCUMENT_UPLOAD</span>
-            </td>
-            <td class="px-4 py-4 t-sub text-zinc-500 text-xs transition-colors duration-200">
-              doc_lease_amendment_final.docx</td>
-            <td class="px-4 py-4 t-muted text-zinc-400 text-xs transition-colors duration-200">—</td>
-            <td class="px-4 py-4 t-muted text-zinc-400 text-xs transition-colors duration-200">—</td>
-            <td class="px-4 py-4 t-muted text-zinc-400 text-xs transition-colors duration-200">—</td>
-            <td class="px-4 py-4 text-right">
-              <button onclick="openLogModal(this.closest('tr'))"
-                class="btn-view text-xs border border-zinc-300 text-zinc-500 px-3 py-1.5 hover:border-zinc-900 hover:text-zinc-900 whitespace-nowrap transition-colors duration-150">View
-                →</button>
-            </td>
-          </tr>
-
-          <!-- ─── ROW 10: AI_QUERY ─── -->
-          <tr class="bg-row bg-white hover:bg-zinc-50 transition-colors duration-150 cursor-default"
-            data-log-id="log_d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5" data-user-id="sophia.wright"
-            data-timestamp="2026-03-13 15:37:52" data-action="AI_QUERY" data-target="due-diligence-session-022"
-            data-template-id="tmpl_due_diligence_v4" data-model-used="claude-sonnet-4-6" data-response-time="2104"
-            data-mask-counts='{"NAME":5,"ORG":3,"AMOUNT":4,"DATE":1,"ADDR":2}'
-            data-details="Due diligence summary query. 15 PII items masked across 5 categories before dispatch.">
-            <td
-              class="px-4 py-4 t-mono text-zinc-400 font-mono text-xs whitespace-nowrap transition-colors duration-200">
-              2026-03-13&nbsp;15:37</td>
-            <td
-              class="px-4 py-4 font-medium t-head text-zinc-800 text-sm whitespace-nowrap transition-colors duration-200">
-              sophia.wright</td>
-            <td class="px-4 py-4">
-              <span
-                class="act-ai action-badge inline-block bg-blue-50 text-blue-700 text-xs px-2.5 py-1 font-mono whitespace-nowrap border border-blue-200 transition-colors duration-200">AI_QUERY</span>
-            </td>
-            <td class="px-4 py-4 t-sub text-zinc-500 text-xs transition-colors duration-200">due-diligence-session-022
-            </td>
-            <td
-              class="px-4 py-4 t-mono text-zinc-500 font-mono text-xs whitespace-nowrap transition-colors duration-200">
-              claude-sonnet-4-6</td>
-            <td class="px-4 py-4 whitespace-nowrap">
-              <span class="text-xs font-medium text-amber-600">2 104 ms</span>
-            </td>
-            <td class="px-4 py-4">
-              <div class="flex items-center gap-1 flex-wrap">
-                <span
-                  class="mask-pill bg-zinc-100 text-zinc-600 border border-zinc-200 transition-colors duration-200">NAME·5</span>
-                <span
-                  class="mask-pill bg-zinc-100 text-zinc-600 border border-zinc-200 transition-colors duration-200">ORG·3</span>
-                <span
-                  class="mask-pill bg-zinc-100 text-zinc-600 border border-zinc-200 transition-colors duration-200">AMT·4</span>
-                <span
-                  class="mask-pill bg-zinc-100 text-zinc-600 border border-zinc-200 transition-colors duration-200">+2</span>
-              </div>
-            </td>
-            <td class="px-4 py-4 text-right">
-              <button onclick="openLogModal(this.closest('tr'))"
-                class="btn-view text-xs border border-zinc-300 text-zinc-500 px-3 py-1.5 hover:border-zinc-900 hover:text-zinc-900 whitespace-nowrap transition-colors duration-150">View
-                →</button>
-            </td>
-          </tr>
+          }
 
         </tbody>
       </table>
+      }
+
     </div>
 
-    <!-- ══ MOBILE CARDS ══ -->
-    <div class="md:hidden b-std border border-zinc-200 divide-y transition-colors duration-200">
+    @if(!loading && auditLogs.length === 0){
+    <p class="text-sm text-zinc-500">
+      {{ filters.userId || filters.fromDate || filters.toDate
+      ? 'No results match your filters'
+      : 'No audit logs available' }}
+    </p>
+    }
 
-      <div class="bg-row bg-white p-4 transition-colors duration-200" data-log-id="log_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"
-        data-user-id="eleanor.voss" data-timestamp="2026-03-17 10:02:14" data-action="AI_QUERY"
-        data-target="contract-review-session-001" data-template-id="tmpl_legal_review_v3"
-        data-model-used="claude-sonnet-4-6" data-response-time="1243" data-mask-counts='{"NAME":3,"DATE":2,"CASE_NO":1}'
-        data-details="User submitted a contract clause review query. 6 PII items anonymised before dispatch to model.">
-        <div class="flex items-start justify-between mb-3">
-          <div>
-            <p class="font-medium t-head text-zinc-800 text-sm transition-colors duration-200">eleanor.voss</p>
-            <p class="t-mono text-zinc-400 font-mono text-xs mt-0.5 transition-colors duration-200">2026-03-17 10:02</p>
-          </div>
-          <span
-            class="act-ai action-badge inline-block bg-blue-50 text-blue-700 text-xs px-2 py-0.5 font-mono border border-blue-200 shrink-0 ml-2 transition-colors duration-200">AI_QUERY</span>
-        </div>
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-xs t-sub text-zinc-500 transition-colors duration-200">contract-review-session-001</p>
-            <div class="flex items-center gap-1 flex-wrap mt-1.5">
-              <span
-                class="mask-pill bg-zinc-100 text-zinc-600 border border-zinc-200 transition-colors duration-200">NAME·3</span>
-              <span
-                class="mask-pill bg-zinc-100 text-zinc-600 border border-zinc-200 transition-colors duration-200">DATE·2</span>
-              <span
-                class="mask-pill bg-zinc-100 text-zinc-600 border border-zinc-200 transition-colors duration-200">CASE·1</span>
+    <!-- New cards -->
+    <div class="md:hidden b-std border border-zinc-200 divide-y">
+
+      @for (log of paginatedLogs; track log.id) {
+
+        <div class="bg-row bg-white p-4">
+
+          <div class="flex items-start justify-between mb-3">
+            <div>
+              <p class="font-medium text-sm">{{ log.userId }}</p>
+              <p class="text-xs text-zinc-400">
+                {{ log.timestamp | date:'yyyy-MM-dd HH:mm' }}
+              </p>
             </div>
-          </div>
-          <button onclick="openLogModal(this.closest('[data-log-id]'))"
-            class="btn-view text-xs border border-zinc-300 text-zinc-500 px-3 py-1.5 hover:border-zinc-900 hover:text-zinc-900 transition-colors shrink-0 ml-3">View
-            →</button>
-        </div>
-      </div>
 
-      <div class="bg-row bg-white p-4 transition-colors duration-200" data-log-id="log_c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8"
-        data-user-id="sophia.wright" data-timestamp="2026-03-17 09:31:02" data-action="DOCUMENT_UPLOAD"
-        data-target="doc_merger_agreement_v4.pdf" data-template-id="" data-model-used="" data-response-time=""
-        data-mask-counts=""
-        data-details="Document uploaded to secure store. File size: 2.4 MB. Awaiting review assignment.">
-        <div class="flex items-start justify-between mb-3">
-          <div>
-            <p class="font-medium t-head text-zinc-800 text-sm transition-colors duration-200">sophia.wright</p>
-            <p class="t-mono text-zinc-400 font-mono text-xs mt-0.5 transition-colors duration-200">2026-03-17 09:31</p>
+            <span class="text-xs px-2 py-0.5 border">
+              {{ log.action }}
+            </span>
           </div>
-          <span
-            class="act-doc action-badge inline-block bg-emerald-50 text-emerald-700 text-xs px-2 py-0.5 font-mono border border-emerald-200 shrink-0 ml-2 transition-colors duration-200">DOCUMENT_UPLOAD</span>
-        </div>
-        <div class="flex items-center justify-between">
-          <p class="text-xs t-sub text-zinc-500 transition-colors duration-200">doc_merger_agreement_v4.pdf</p>
-          <button onclick="openLogModal(this.closest('[data-log-id]'))"
-            class="btn-view text-xs border border-zinc-300 text-zinc-500 px-3 py-1.5 hover:border-zinc-900 hover:text-zinc-900 transition-colors shrink-0 ml-3">View
-            →</button>
-        </div>
-      </div>
 
-      <div class="bg-row bg-white p-4 transition-colors duration-200" data-log-id="log_d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9"
-        data-user-id="harrison.blake" data-timestamp="2026-03-17 08:59:41" data-action="LOGIN_SUCCESS"
-        data-target="auth-session" data-template-id="" data-model-used="" data-response-time="" data-mask-counts=""
-        data-details="Successful authentication via username/password. Session token issued.">
-        <div class="flex items-start justify-between mb-3">
-          <div>
-            <p class="font-medium t-head text-zinc-800 text-sm transition-colors duration-200">harrison.blake</p>
-            <p class="t-mono text-zinc-400 font-mono text-xs mt-0.5 transition-colors duration-200">2026-03-17 08:59</p>
+          <div class="flex items-center justify-between">
+            <p class="text-xs text-zinc-500">{{ log.target }}</p>
+
+            <button
+              (click)="openLog(log)"
+              class="text-xs border px-3 py-1.5">
+              View →
+            </button>
           </div>
-          <span
-            class="act-login action-badge inline-block bg-zinc-100 text-zinc-600 text-xs px-2 py-0.5 font-mono border border-zinc-200 shrink-0 ml-2 transition-colors duration-200">LOGIN_SUCCESS</span>
-        </div>
-        <div class="flex items-center justify-between">
-          <p class="text-xs t-sub text-zinc-500 transition-colors duration-200">auth-session</p>
-          <button onclick="openLogModal(this.closest('[data-log-id]'))"
-            class="btn-view text-xs border border-zinc-300 text-zinc-500 px-3 py-1.5 hover:border-zinc-900 hover:text-zinc-900 transition-colors shrink-0 ml-3">View
-            →</button>
-        </div>
-      </div>
 
-      <div class="bg-row bg-white p-4 transition-colors duration-200" data-log-id="log_e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
-        data-user-id="harrison.blake" data-timestamp="2026-03-16 14:22:07" data-action="USER_CREATED"
-        data-target="user::daniel.ford" data-template-id="" data-model-used="" data-response-time="" data-mask-counts=""
-        data-details="New user account created with role JUNIOR. Supervisor assigned: sophia.wright.">
-        <div class="flex items-start justify-between mb-3">
-          <div>
-            <p class="font-medium t-head text-zinc-800 text-sm transition-colors duration-200">harrison.blake</p>
-            <p class="t-mono text-zinc-400 font-mono text-xs mt-0.5 transition-colors duration-200">2026-03-16 14:22</p>
-          </div>
-          <span
-            class="act-user action-badge inline-block bg-amber-50 text-amber-700 text-xs px-2 py-0.5 font-mono border border-amber-200 shrink-0 ml-2 transition-colors duration-200">USER_CREATED</span>
         </div>
-        <div class="flex items-center justify-between">
-          <p class="text-xs t-sub text-zinc-500 transition-colors duration-200">user::daniel.ford</p>
-          <button onclick="openLogModal(this.closest('[data-log-id]'))"
-            class="btn-view text-xs border border-zinc-300 text-zinc-500 px-3 py-1.5 hover:border-zinc-900 hover:text-zinc-900 transition-colors shrink-0 ml-3">View
-            →</button>
-        </div>
-      </div>
-
+      }
     </div>
 
-    <!-- ══ PAGINATION ══ -->
+    <!-- Pagination -->
     <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mt-5">
-      <p class="text-xs t-label text-zinc-400 order-2 sm:order-1 transition-colors duration-200">Showing 10 of 1,284
-        events</p>
+      <p class="text-xs t-label text-zinc-400 order-2 sm:order-1 transition-colors duration-200">Showing {{
+        paginatedLogs.length }} of {{ auditLogs.length }} events</p>
       <div class="flex items-center gap-1 order-1 sm:order-2">
-        <button
+        <button (click)="currentPage = currentPage - 1" [disabled]="currentPage === 1"
           class="pag-btn w-8 h-8 border border-zinc-200 text-zinc-400 text-xs flex items-center justify-center transition-colors"
           disabled>‹</button>
+
+        <!-- Page numbers -->
+        @for (page of [].constructor(totalPages); let i = $index ; track $index) {
         <button
-          class="pag-active w-8 h-8 border border-zinc-900 bg-zinc-900 text-white text-xs flex items-center justify-center transition-colors">1</button>
-        <button
-          class="pag-btn w-8 h-8 border border-zinc-200 text-zinc-500 text-xs flex items-center justify-center hover:border-zinc-900 hover:text-zinc-900 transition-colors">2</button>
-        <button
-          class="pag-btn w-8 h-8 border border-zinc-200 text-zinc-500 text-xs flex items-center justify-center hover:border-zinc-900 hover:text-zinc-900 transition-colors">3</button>
-        <span class="text-xs t-muted text-zinc-400 px-1">…</span>
-        <button
-          class="pag-btn w-8 h-8 border border-zinc-200 text-zinc-500 text-xs flex items-center justify-center hover:border-zinc-900 hover:text-zinc-900 transition-colors">129</button>
-        <button
+          class="pag-active w-8 h-8 border border-zinc-900 bg-zinc-900 text-white text-xs flex items-center justify-center transition-colors"
+          (click)="currentPage = i + 1" [class.bg-zinc-900]="currentPage === i + 1"
+          [class.text-white]="currentPage === i + 1">
+          {{ i + 1 }}</button>
+        }
+        <button (click)="currentPage = currentPage + 1" [disabled]="currentPage === totalPages"
           class="pag-btn w-8 h-8 border border-zinc-200 text-zinc-400 text-xs flex items-center justify-center hover:border-zinc-900 hover:text-zinc-900 transition-colors">›</button>
       </div>
     </div>
 
-  </div><!-- /max-w -->
+  </div>
 
-
-  <!-- ══════════════════════════════════════════════════════
-       DETAIL MODAL
-       All fields map 1-to-1 to audit_log table columns.
-       Populated dynamically by openLogModal() via data-* attrs.
-       Angular: replace JS bridge with component @Input binding.
-  ══════════════════════════════════════════════════════ -->
-  <div id="detailModal" hidden
-    class="fixed inset-0 z-50 modal-backdrop bg-black/30 flex items-end sm:items-center justify-center sm:px-4">
-    <div
-      class="modal-box bg-white border border-zinc-200 w-full sm:max-w-2xl shadow-2xl transition-colors duration-200 max-h-[90vh] flex flex-col">
-
-      <!-- Header -->
+  <!-- Detail Model -->
+  @if(selectedLog){
+    <div class="fixed inset-0 z-50 modal-backdrop bg-black/30 flex items-end sm:items-center justify-center sm:px-4">
+  
       <div
-        class="modal-head flex items-center justify-between px-6 sm:px-7 py-5 border-b border-zinc-100 transition-colors duration-200 shrink-0">
-        <div>
-          <p
-            class="text-xs tracking-widest uppercase t-label text-zinc-400 font-medium mb-0.5 transition-colors duration-200">
-            Compliance · Read-Only</p>
-          <h3 class="serif text-xl font-semibold t-head text-zinc-900 transition-colors duration-200">Audit Log Record
-          </h3>
-        </div>
-        <button onclick="document.getElementById('detailModal').hidden = true"
-          class="t-label text-zinc-400 hover:text-zinc-900 p-1 transition-colors">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
+        class="modal-box bg-white border border-zinc-200 w-full sm:max-w-2xl shadow-2xl transition-colors duration-200 max-h-[90vh] flex flex-col">
 
-      <!-- Body — scrollable -->
-      <div class="px-6 sm:px-7 py-6 space-y-4 overflow-y-auto">
-
-        <!-- ── Core identity fields ── -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-
-          <!-- audit_log.id (VARCHAR 250, PK) -->
-          <div
-            class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 sm:col-span-2 transition-colors duration-200">
+        <!-- Header -->
+        <div
+          class="modal-head flex items-center justify-between px-6 sm:px-7 py-5 border-b border-zinc-100 transition-colors duration-200 shrink-0">
+          <div>
             <p
-              class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
-              id <span class="normal-case font-normal">(VARCHAR 250 · PRIMARY KEY)</span></p>
-            <p id="m-id" class="field-mono text-xs font-mono text-zinc-600 break-all transition-colors duration-200">—
-            </p>
+              class="text-xs tracking-widest uppercase t-label text-zinc-400 font-medium mb-0.5 transition-colors duration-200">
+              Compliance · Read-Only</p>
+            <h3 class="serif text-xl font-semibold t-head text-zinc-900 transition-colors duration-200">Audit Log Record
+            </h3>
           </div>
-
-          <!-- audit_log.timestamp (TIMESTAMP, idx_audit_timestamp) -->
-          <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
-            <p
-              class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
-              timestamp</p>
-            <p id="m-timestamp" class="field-val text-sm font-mono text-zinc-800 transition-colors duration-200">—</p>
-          </div>
-
-          <!-- audit_log.user_id (VARCHAR 50, idx_audit_user) -->
-          <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
-            <p
-              class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
-              user_id <span class="normal-case font-normal">(idx_audit_user)</span></p>
-            <p id="m-user-id" class="field-val text-sm font-medium text-zinc-800 transition-colors duration-200">—</p>
-          </div>
-
-          <!-- audit_log.action (VARCHAR 50, idx_audit_action) -->
-          <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
-            <p
-              class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
-              action <span class="normal-case font-normal">(idx_audit_action)</span></p>
-            <span id="m-action-badge"
-              class="inline-block text-xs px-2.5 py-1 font-mono border transition-colors duration-200">—</span>
-          </div>
-
-          <!-- audit_log.target (VARCHAR 100) -->
-          <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
-            <p
-              class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
-              target <span class="normal-case font-normal">(VARCHAR 100)</span></p>
-            <p id="m-target"
-              class="field-mono text-xs font-mono text-zinc-600 break-all transition-colors duration-200">—</p>
-          </div>
-
-          <!-- audit_log.template_id (VARCHAR 100) — nullable -->
-          <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
-            <p
-              class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
-              template_id <span class="normal-case font-normal">(nullable)</span></p>
-            <p id="m-template-id" class="field-mono text-xs font-mono text-zinc-500 transition-colors duration-200">null
-            </p>
-          </div>
-
+          <button (click)="closeModal()"
+            class="t-label text-zinc-400 hover:text-zinc-900 p-1 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
-        <!-- ── AI-specific fields ── -->
-        <div>
-          <p
-            class="text-xs t-label text-zinc-400 tracking-widest uppercase font-medium mb-2 transition-colors duration-200">
-            AI Fields — null for non-AI actions</p>
+        <!-- Body — scrollable -->
+        <div class="px-6 sm:px-7 py-6 space-y-4 overflow-y-auto">
+
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
-            <!-- audit_log.model_used (VARCHAR 50) -->
-            <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
+            <div
+              class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 sm:col-span-2 transition-colors duration-200">
               <p
                 class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
-                model_used</p>
-              <p id="m-model-used" class="field-mono text-xs font-mono text-zinc-500 transition-colors duration-200">
-                null</p>
+                id</p>
+              <p id="m-id" class="field-mono text-xs font-mono text-zinc-600 break-all transition-colors duration-200">{{ selectedLog.userId }}
+              </p>
             </div>
 
-            <!-- audit_log.response_time (BIGINT, ms) -->
             <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
               <p
                 class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
-                response_time <span class="normal-case font-normal">(BIGINT, ms)</span></p>
-              <p id="m-response-time" class="field-mono text-xs font-mono text-zinc-500 transition-colors duration-200">
-                null</p>
+                timestamp</p>
+              <p id="m-timestamp" class="field-val text-sm font-mono text-zinc-800 transition-colors duration-200">{{ selectedLog.timestamp | date:'yyyy-MM-dd HH:mm' }}</p>
+            </div>
+
+            <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
+              <p
+                class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
+                user_id</p>
+              <p id="m-user-id" class="field-val text-sm font-medium text-zinc-800 transition-colors duration-200">{{ selectedLog.userId }}</p>
+            </div>
+
+            <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
+              <p
+                class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
+                action</p>
+              <span id="m-action-badge"
+                class="inline-block text-xs px-2.5 py-1 font-mono border transition-colors duration-200">{{ selectedLog.action }}</span>
+            </div>
+
+            <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
+              <p
+                class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
+                target</p>
+              <p id="m-target"
+                class="field-mono text-xs font-mono text-zinc-600 break-all transition-colors duration-200">{{ selectedLog.target || '    -' }}</p>
             </div>
 
           </div>
-        </div>
 
-        <!-- audit_log.mask_counts (JSONB) — rendered as formatted JSON + pills -->
-        <div>
+          <!-- ── AI-specific fields ── -->
+          <div>
+            <p
+              class="text-xs t-label text-zinc-400 tracking-widest uppercase font-medium mb-2 transition-colors duration-200">
+              AI Fields — null for non-AI actions</p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+              <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
+              <p
+                class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
+                template_id</p>
+              <p id="m-template-id" class="field-mono text-xs font-mono text-zinc-500 transition-colors duration-200">{{ selectedLog.templateId || '    -' }}
+              </p>
+            </div>
+
+              <!-- audit_log.model_used -->
+              <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
+                <p
+                  class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
+                  model_used</p>
+                <p id="m-model-used" class="field-mono text-xs font-mono text-zinc-500 transition-colors duration-200">
+                  {{ selectedLog.modelUsed || '    -' }}</p>
+              </div>
+
+              <!-- audit_log.response_time -->
+              <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
+                <p
+                  class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-1 transition-colors duration-200">
+                  response_time</p>
+                <p id="m-response-time" class="field-mono text-xs font-mono text-zinc-500 transition-colors duration-200">
+                  {{ selectedLog.responseTime || '    -' }}</p>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- audit_log.mask_counts (JSONB) -->
+          <div>
+            <p
+              class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-2 transition-colors duration-200">
+              PII masked_counts</p>
+            <div id="m-mask-pills" class="flex flex-wrap gap-1.5 mb-2"></div>
+            <div
+              class="json-box bg-zinc-50 border border-zinc-200 text-zinc-600 px-4 py-3 text-xs transition-colors duration-200"
+              id="m-mask-json">
+              @if(selectedLog.maskCounts){
+                {{ selectedLog.maskCounts | json }}
+              } @else {
+                <span class="text-xs text-zinc-400"> - </span>
+              }
+            </div>
+          </div>
+
+          <!-- audit_log.details -->
+          <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
+            <p
+              class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-2 transition-colors duration-200">
+              details </p>
+            <p id="m-details" class="field-val text-sm text-zinc-700 leading-relaxed transition-colors duration-200">{{ selectedLog.details }}</p>
+          </div>
+
           <p
-            class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-2 transition-colors duration-200">
-            mask_counts <span class="normal-case font-normal">(JSONB — PII category counts)</span></p>
-          <div id="m-mask-pills" class="flex flex-wrap gap-1.5 mb-2"></div>
-          <div
-            class="json-box bg-zinc-50 border border-zinc-200 text-zinc-600 px-4 py-3 text-xs transition-colors duration-200"
-            id="m-mask-json">null</div>
+            class="modal-note text-xs t-label text-zinc-400 leading-relaxed border-l-2 border-zinc-200 pl-3 transition-colors duration-200">
+            This record is read-only. Audit logs are immutable and cannot be edited, deleted, or modified by any user.
+          </p>
         </div>
 
-        <!-- audit_log.details (TEXT) -->
-        <div class="field-bg bg-zinc-50 border border-zinc-100 px-4 py-3 transition-colors duration-200">
-          <p
-            class="field-label text-xs text-zinc-400 tracking-widest uppercase font-medium mb-2 transition-colors duration-200">
-            details <span class="normal-case font-normal">(TEXT)</span></p>
-          <p id="m-details" class="field-val text-sm text-zinc-700 leading-relaxed transition-colors duration-200">—</p>
+        <!-- Footer -->
+        <div
+          class="modal-foot flex justify-end px-6 sm:px-7 py-5 border-t border-zinc-100 transition-colors duration-200 shrink-0">
+          <button (click)="closeModal()"
+            class="btn-outline border border-zinc-200 text-sm text-zinc-600 px-6 py-2.5 hover:border-zinc-900 hover:text-zinc-900 transition-colors">Close</button>
         </div>
-
-        <p
-          class="modal-note text-xs t-label text-zinc-400 leading-relaxed border-l-2 border-zinc-200 pl-3 transition-colors duration-200">
-          This record is read-only. Audit logs are immutable and cannot be edited, deleted, or modified by any user.
-        </p>
-      </div>
-
-      <!-- Footer -->
-      <div
-        class="modal-foot flex justify-end px-6 sm:px-7 py-5 border-t border-zinc-100 transition-colors duration-200 shrink-0">
-        <button onclick="document.getElementById('detailModal').hidden = true"
-          class="btn-outline border border-zinc-200 text-sm text-zinc-600 px-6 py-2.5 hover:border-zinc-900 hover:text-zinc-900 transition-colors">Close</button>
       </div>
     </div>
-  </div>
+  }
