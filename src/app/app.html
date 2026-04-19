@@ -1,1 +1,15 @@
-<router-outlet></router-outlet>
+@if (connectivity.outage(); as outage) {
+	<main
+		class="page bg-white text-zinc-900 min-h-screen flex items-center justify-center px-6 py-12 transition-colors duration-200"
+		role="alert"
+		aria-live="polite"
+	>
+		<div class="w-full max-w-md border border-zinc-200 bg-white px-6 py-8">
+			<p class="text-xs tracking-widest uppercase text-zinc-400 font-medium mb-3">SecureLaw</p>
+			<h1 class="serif text-3xl font-semibold leading-tight">{{ outage.title }}</h1>
+			<p class="text-sm text-zinc-500 mt-3 leading-relaxed">{{ outage.message }}</p>
+		</div>
+	</main>
+} @else {
+	<router-outlet></router-outlet>
+}

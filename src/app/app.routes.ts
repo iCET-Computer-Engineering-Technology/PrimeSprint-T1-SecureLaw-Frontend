@@ -33,7 +33,7 @@ export const routes: Routes = [
     ],
   },
   {
-    path: 'chat/:conversationId',
+    path: 'chat/:chatId',
     canActivate: [authGuard, roleGuard],
     data: { roles: ['SENIOR', 'JUNIOR'] },
     component: Chat,

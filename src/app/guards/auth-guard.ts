@@ -16,7 +16,7 @@ export const authGuard: CanActivateFn = (route, state) => {
     if (userRole === 'SENIOR') {
       router.navigate(['/admin/user-management']);
     } else {
-      router.navigate(['/chat']);
+      router.navigate(['/chat/' + Math.random().toString(36).substring(2, 10)]);
     }
     return false;
   }
