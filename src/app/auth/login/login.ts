@@ -43,6 +43,7 @@ export class Login {
       if (res.role === 'SENIOR') {
         this.router.navigate(['/admin/user-management']);
       } else {
+        // For regular users, create a chat session and navigate to chat
         this.chatSession.createChat().subscribe({
           next: (session) => {
             this.router.navigate(['/chat', session.chatId]);
