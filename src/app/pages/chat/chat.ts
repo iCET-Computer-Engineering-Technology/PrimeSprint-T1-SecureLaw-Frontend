@@ -6,6 +6,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  HostListener,
   OnInit,
   ViewChild,
   inject,
@@ -13,23 +14,23 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   SecureFlowPipelineService,
   SecureFlowPipelineState,
   SecureFlowPipelineStage,
 } from '../../services/secure-flow-pipeline-service';
-import { environment } from '../../../environments/environment';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { SensitiveDataItem } from '../../models/secure-flow.model';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Theme } from '../../core/services/theme';
+import { Token } from '../../core/services/token';
+import { Auth } from '../../core/services/auth';
+import { ChatSessionService } from '../../services/chat-session.service';
 
-interface SessionResponse {
-  conversationId: string;
-}
+type NormalizedRole = 'SENIOR' | 'JUNIOR' | '';
 
 interface ChatMessage {
   role: 'user' | 'ai';
@@ -52,14 +53,6 @@ interface ChatTextSegment {
   piiLabel?: string;
 }
 
-interface ConversationSummary {
-  conversationId: string;
-  title: string;
-  preview: string;
-  messages: ChatMessage[];
-  time: string;
-}
-
 @Component({
   selector: 'app-chat',
   imports: [CommonModule, FormsModule],
@@ -71,20 +64,16 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   @ViewChild('chatScroll') chatScrollRef!: ElementRef<HTMLElement>;
   @ViewChild('fileInput') fileInputRef?: ElementRef<HTMLInputElement>;
   @ViewChild('composer') composerRef?: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('userMenuWrap') userMenuWrapRef?: ElementRef<HTMLElement>;
 
-  conversationId = '';
   userInput = '';
   messages: ChatMessage[] = [];
 
-  isConversationLoading = false;
   isPipelineLoading = false;
   get isLoading(): boolean {
-    return this.isConversationLoading || this.isPipelineLoading;
+    return this.isPipelineLoading;
   }
 
-  sidebarHistory: ConversationSummary[] = [];
-  activeConversationId = '';
-  allConversations = new Map<string, ChatMessage[]>();
   private shouldScroll = false;
 
   showScrollToBottomButton = false;
@@ -95,24 +84,41 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
 
   selectedFile: File | null = null;
 
+  userMenuOpen = false;
+  currentUserName = 'User';
+  currentUserRole: NormalizedRole = '';
+
   pipelineStage: SecureFlowPipelineStage = 'IDLE';
   pipelineError: unknown = null;
   lastModelUsed: string | null = null;
 
   private pendingPromptMessage: ChatMessage | null = null;
   private pendingPipelineId: string | null = null;
-  private pendingConversationId: string | null = null;
-
-  private readonly apiUrl = environment.apiUrl;
-
-  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  private readonly http = inject(HttpClient);
+  private readonly route = inject(ActivatedRoute);
   private readonly pipeline = inject(SecureFlowPipelineService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly sanitizer = inject(DomSanitizer);
   readonly theme = inject(Theme);
+  private readonly token = inject(Token);
+  private readonly auth = inject(Auth);
+  private readonly chatSession = inject(ChatSessionService);
+
+  /**
+   * The unique identifier for the current chat session.
+   *
+   * This is set from the route parameter (e.g., /chat/:chatId) and updated when starting a new conversation.
+   *
+   * While not strictly required for the current implementation, keeping this property allows for future features such as:
+   * - Loading chat history by ID
+   * - Switching between multiple conversations
+   * - Referencing the current chat session in API calls
+   *
+   * If you plan to add chat history, multi-session support, or session-specific features, retain this property.
+   * Otherwise, you may remove it and simplify the code.
+   */
+  private chatId: string | null = null;
 
   private renderQueued = false;
   private composerKeyHandlerBound = false;
@@ -172,6 +178,8 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
     this.destroyRef.onDestroy(() => this.stopTypingAnimation(true));
     this.destroyRef.onDestroy(() => this.unbindComposerKeyHandler());
 
+    this.loadCurrentUser();
+
     this.pipeline.state$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((state: SecureFlowPipelineState) => {
@@ -189,19 +197,160 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
       });
 
     this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
-      const id = params.get('conversationId');
-      if (id) {
-        this.stopTypingAnimation(true);
-        this.conversationId = id;
-        this.activeConversationId = id;
-        const saved = this.allConversations.get(id);
-        this.messages = saved ? this.ensureRenderedMessages(saved) : [];
-        this.clearPendingPromptTracking();
-        this.requestRender();
-      } else {
-        this.startNewConversation();
-      }
+      const id = params.get('chatId');
+      this.chatId = id;
     });
+  }
+
+  private normalizeRole(role: unknown): NormalizedRole {
+    const normalized = (role ?? '').toString().trim().toUpperCase();
+    if (normalized.startsWith('ROLE_')) {
+      return normalized.slice('ROLE_'.length) as NormalizedRole;
+    }
+    if (normalized === 'SENIOR' || normalized === 'JUNIOR') {
+      return normalized;
+    }
+    return '';
+  }
+
+  get role(): NormalizedRole {
+    return this.currentUserRole || this.normalizeRole(this.token.getRole());
+  }
+
+  get roleLabel(): string {
+    switch (this.role) {
+      case 'SENIOR':
+        return 'Senior Lawyer';
+      case 'JUNIOR':
+        return 'Junior Lawyer';
+      default:
+        return 'Lawyer';
+    }
+  }
+
+  get userInitials(): string {
+    const name = (this.currentUserName ?? '').trim();
+    if (!name) {
+      return 'U';
+    }
+
+    const parts = name
+      .split(/\s+/g)
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    const first = parts[0]?.[0] ?? '';
+    const last = (parts.length > 1 ? parts.at(-1) : '')?.[0] ?? '';
+    const initials = (first + last).toUpperCase();
+    return initials || 'U';
+  }
+
+  get canSeeAdminMenu(): boolean {
+    return this.role === 'SENIOR';
+  }
+
+  private loadCurrentUser(): void {
+    // Fast initial values from localStorage.
+    this.currentUserRole = this.normalizeRole(this.token.getRole());
+
+    // Prefer server truth when available.
+    this.auth
+      .me()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res: unknown) => {
+          const me = res as {
+            username?: unknown;
+            name?: unknown;
+            email?: unknown;
+            role?: unknown;
+          };
+
+          const name =
+            typeof me.name === 'string' && me.name.trim()
+              ? me.name
+              : typeof me.username === 'string' && me.username.trim()
+                ? me.username
+                : typeof me.email === 'string' && me.email.trim()
+                  ? me.email
+                  : '';
+
+          if (name) {
+            this.currentUserName = name;
+          }
+          this.currentUserRole = this.normalizeRole(me.role ?? this.currentUserRole);
+          this.requestRender();
+        },
+        error: () => {
+          // Non-fatal: keep fallback values.
+        },
+      });
+  }
+
+  toggleUserMenu(event?: Event): void {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    this.userMenuOpen = !this.userMenuOpen;
+    this.requestRender();
+  }
+
+  closeUserMenu(): void {
+    if (!this.userMenuOpen) {
+      return;
+    }
+    this.userMenuOpen = false;
+    this.requestRender();
+  }
+
+  get isOnChat(): boolean {
+    const url = this.router.url ?? '';
+    return url.startsWith('/chat');
+  }
+
+  goToChatFromMenu(): void {
+    this.closeUserMenu();
+  }
+
+  goToUserManagement(): void {
+    this.closeUserMenu();
+    this.router.navigate(['/admin/user-management']);
+  }
+
+  goToAuditLogs(): void {
+    this.closeUserMenu();
+    this.router.navigate(['/admin/audit-logs']);
+  }
+
+  logout(): void {
+    this.closeUserMenu();
+    this.token.clear();
+    this.router.navigate(['/login']);
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (!this.userMenuOpen) {
+      return;
+    }
+
+    const wrap = this.userMenuWrapRef?.nativeElement;
+    const target = event.target as Node | null;
+    if (!wrap || !target) {
+      return;
+    }
+
+    if (!wrap.contains(target)) {
+      this.closeUserMenu();
+    }
+  }
+
+  @HostListener('document:keydown.escape', ['$event'])
+  onEscape(event: Event): void {
+    if (!this.userMenuOpen) {
+      return;
+    }
+    event.preventDefault();
+    this.closeUserMenu();
   }
 
   private bindComposerKeyHandler(): void {
@@ -402,16 +551,11 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   private clearPendingPromptTracking(): void {
     this.pendingPromptMessage = null;
     this.pendingPipelineId = null;
-    this.pendingConversationId = null;
   }
 
   private tryAttachPromptHighlights(state: SecureFlowPipelineState): void {
     const pending = this.pendingPromptMessage;
     if (!pending) {
-      return;
-    }
-
-    if (this.pendingConversationId && this.pendingConversationId !== this.conversationId) {
       return;
     }
 
@@ -636,24 +780,6 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
     return this.sanitizer.bypassSecurityTrustHtml(cleaned);
   }
 
-  private ensureRenderedMessages(messages: ChatMessage[]): ChatMessage[] {
-    return messages.map((m) => {
-      if (m.role !== 'ai') {
-        return m;
-      }
-
-      const normalized: ChatMessage = {
-        ...m,
-        typing: false,
-        displayText: undefined,
-      };
-
-      normalized.html ??= this.markdownToSafeHtml(normalized.content);
-
-      return normalized;
-    });
-  }
-
   ngAfterViewChecked(): void {
     if (this.shouldScroll) {
       this.scrollToBottom(false);
@@ -719,14 +845,6 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
     return 'Something went wrong. Please try again.';
   }
 
-  private createConversationId(): string {
-    try {
-      return crypto.randomUUID();
-    } catch {
-      return Math.random().toString(36).slice(2);
-    }
-  }
-
   private resetFileInput(): void {
     this.selectedFile = null;
     const el = this.fileInputRef?.nativeElement;
@@ -736,10 +854,6 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   }
 
   pipelineStatusText(): string {
-    if (this.isConversationLoading) {
-      return 'Starting conversation';
-    }
-
     switch (this.pipelineStage) {
       case 'UPLOADING':
         return 'Uploading';
@@ -763,51 +877,29 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
   }
 
   startNewConversation(): void {
-    this.isConversationLoading = true;
-    this.clearPendingPromptTracking();
+    this.messages = [];
 
-    this.autoScroll = true;
-    this.showScrollToBottomButton = false;
-
-    this.requestRender();
-
-    this.http.post<SessionResponse>(`${this.apiUrl}/chat/conversation`, {}).subscribe({
-      next: (res: SessionResponse) => {
-        this.conversationId = res.conversationId;
-        this.activeConversationId = this.conversationId;
-        this.messages = [];
-        this.shouldScroll = true;
-        this.router.navigate(['/chat', this.conversationId]);
-        this.isConversationLoading = false;
+    this.chatSession.createChat().subscribe({
+      next: (session) => {
+        this.chatId = session.chatId;
+        this.router.navigate(['/chat', session.chatId]);
         this.requestRender();
+        const sidebarCheck = document.getElementById('sidebarCheck') as HTMLInputElement | null;
+        if (sidebarCheck?.checked) {
+          sidebarCheck.checked = false;
+        }
       },
       error: (err) => {
-        console.error('Error creating conversation', err);
-
-        // UX: if backend is down, still allow local navigation.
-        const fallbackId = this.createConversationId();
-        this.conversationId = fallbackId;
-        this.activeConversationId = fallbackId;
-        this.messages = [];
-        this.shouldScroll = true;
-        this.router.navigate(['/chat', fallbackId]);
-
-        this.isConversationLoading = false;
+        console.error('Failed to create chat session:', err);
+        this.messages.push({
+          role: 'ai',
+          content: 'Failed to start a new conversation. Please try again.',
+          html: this.markdownToSafeHtml('Failed to start a new conversation. Please try again.'),
+          time: this.getTime(),
+        });
         this.requestRender();
       },
     });
-  }
-
-  switchConversation(conv: ConversationSummary): void {
-    this.clearPendingPromptTracking();
-    this.messages = this.ensureRenderedMessages(conv.messages || []);
-    this.conversationId = conv.conversationId;
-    this.activeConversationId = conv.conversationId;
-
-    this.autoScroll = true;
-    this.showScrollToBottomButton = false;
-    this.shouldScroll = true;
-    this.router.navigate(['/chat', this.conversationId]);
   }
 
   sendMessage(): void {
@@ -821,7 +913,6 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
     this.messages.push(userMsg);
     this.pendingPromptMessage = userMsg;
     this.pendingPipelineId = null;
-    this.pendingConversationId = this.conversationId;
     this.userInput = '';
     this.shouldScroll = true;
 
@@ -850,8 +941,6 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
           this.messages.push(aiMsg);
           this.resetFileInput();
           this.shouldScroll = true;
-          this.updateSidebar(text, aiText);
-          this.allConversations.set(this.conversationId, [...this.messages]);
           this.startTypingAnimation(aiMsg);
           this.requestRender();
         },
@@ -870,25 +959,6 @@ export class Chat implements OnInit, AfterViewInit, AfterViewChecked {
           this.requestRender();
         },
       });
-  }
-
-  private updateSidebar(userText: string, aiText: string): void {
-    const preview = aiText.replaceAll(/\s+/g, ' ').trim();
-    const existing = this.sidebarHistory.find((h) => h.conversationId === this.conversationId);
-    if (existing) {
-      existing.title = userText.substring(0, 30);
-      existing.preview = preview.substring(0, 40);
-      existing.messages = [...this.messages];
-      existing.time = 'Now';
-    } else {
-      this.sidebarHistory.unshift({
-        conversationId: this.conversationId,
-        title: userText.substring(0, 30),
-        preview: preview.substring(0, 40),
-        messages: [...this.messages],
-        time: 'Now',
-      } satisfies ConversationSummary);
-    }
   }
 
   onKeyDown(event: KeyboardEvent): void {

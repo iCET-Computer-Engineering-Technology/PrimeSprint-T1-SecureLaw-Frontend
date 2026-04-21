@@ -2,7 +2,6 @@ import { Component, OnInit, signal } from '@angular/core';
 import { HealthService } from './services/health';
 import { environment } from '../environments/environment';
 import { RouterOutlet } from '@angular/router';
-import { Theme } from './core/services/theme';
 import { Connectivity } from './core/services/connectivity';
 
 @Component({
@@ -16,7 +15,6 @@ export class App implements OnInit {
 
   constructor(
     private readonly healthService: HealthService,
-    private readonly theme: Theme,
     protected readonly connectivity: Connectivity,
   ) {}
 
