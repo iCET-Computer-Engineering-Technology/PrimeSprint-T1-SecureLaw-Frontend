@@ -1,20 +1,22 @@
 import { Component, inject } from '@angular/core';
 import { Auth } from '../../core/services/auth';
 import { Token } from '../../core/services/token';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LoginRequest } from '../../models/auth';
+import { ChatSessionService } from '../../services/chat-session.service';
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './login.html',
   styleUrl: './login.css',
 })
 export class Login {
 
   private readonly fb = inject(FormBuilder);
-  showPassword : boolean = false;
+  private readonly chatSession = inject(ChatSessionService);
+  showPassword: boolean = false;
 
   constructor(
     private authService: Auth,
@@ -41,7 +43,14 @@ export class Login {
       if (res.role === 'SENIOR') {
         this.router.navigate(['/admin/user-management']);
       } else {
-        this.router.navigate(['/chat/' + Math.random().toString(36).substring(2, 10)]);
+        this.chatSession.createChat().subscribe({
+          next: (session) => {
+            this.router.navigate(['/chat', session.chatId]);
+          },
+          error: (err) => {
+            console.error('Failed to create chat session from navbar:', err);
+          },
+        });
       }
     });
   }

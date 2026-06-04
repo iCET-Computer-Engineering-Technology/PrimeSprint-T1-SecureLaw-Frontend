@@ -260,7 +260,7 @@ export class SecureFlowPipelineService {
     return new Error(msg ?? 'Something went wrong. Please try again.');
   }
 
-  startPipeline(prompt: string, file?: File | null): Observable<RehydrateResponse> {
+  startPipeline(prompt: string, file?: File | null, chatId?: string | null): Observable<RehydrateResponse> {
     if (this.state.value.loading) {
       return throwError(() => new Error('A request is already in progress. Please wait.'));
     }
@@ -299,20 +299,20 @@ export class SecureFlowPipelineService {
 
     const extracted$: Observable<{ uploadId?: string; extractedText: string | null }> = file
       ? this.extractTextApi.extract({ file }).pipe(
-          tap((uploadRes) => {
-            this.logInfo(`extractText (${pipelineId})`, uploadRes);
-            this.patchStateFor(pipelineId, {
-              stage: 'EXTRACTING',
-              loading: true,
-              uploadId: uploadRes.uploadId,
-              extractedText: uploadRes.extractedText,
-            });
-          }),
-          map((uploadRes) => ({
+        tap((uploadRes) => {
+          this.logInfo(`extractText (${pipelineId})`, uploadRes);
+          this.patchStateFor(pipelineId, {
+            stage: 'EXTRACTING',
+            loading: true,
             uploadId: uploadRes.uploadId,
             extractedText: uploadRes.extractedText,
-          })),
-        )
+          });
+        }),
+        map((uploadRes) => ({
+          uploadId: uploadRes.uploadId,
+          extractedText: uploadRes.extractedText,
+        })),
+      )
       : of({ extractedText: extractedTextFallback });
 
     return extracted$.pipe(
